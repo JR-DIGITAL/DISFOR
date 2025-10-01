@@ -1,0 +1,30 @@
+[project]
+name = "disfor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Jonas Viehweger", email = "jonas.viehweger@joanneum.at" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "imagecodecs>=2025.8.2",
+    "lightning>=2.5.5",
+    "matplotlib>=3.10.6",
+    "numpy>=2.3.3",
+    "polars>=1.33.1",
+    "pyarrow>=21.0.0",
+    "scikit-learn>=1.7.2",
+    "tifffile>=2025.9.30",
+    "torch>=2.8.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
