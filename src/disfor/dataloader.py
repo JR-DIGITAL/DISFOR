@@ -7,7 +7,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import polars as pl
 import lightning as L
+import numpy as np
 from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
 
 CLASSES = {
     100: "Alive Vegetation",
@@ -270,6 +272,41 @@ class TiffDataset(Dataset):
             #'timestamp': self.samples["timestamps_str"][idx],
             #'id': self.samples["sample_id"][idx],
         }
+
+    def plot_chip(self, idx: int):
+        """
+        Plot a true-color visualization (B04, B03, B02) of the chip
+        with the label as the title.
+        """
+        sample = self[idx]
+        img = sample["image"].numpy()  # shape: (C, H, W)
+        label_idx = sample["label"].item()
+
+        # Map encoded label back to original class id + name
+        class_id = self.encoder.inverse_transform([label_idx])[0]
+        label_name = CLASSES[class_id]
+
+        # original band order in self.bands
+        try:
+            r = self.bands.index("B04")
+            g = self.bands.index("B03")
+            b = self.bands.index("B02")
+        except ValueError:
+            raise ValueError(
+                "Bands B02, B03, B04 must be present for true-color visualization."
+            )
+
+        rgb = np.stack([img[r], img[g], img[b]], axis=-1)
+
+        # Normalize for display
+        gain = 3
+        rgb = np.clip(rgb * gain, 0, 1)
+
+        plt.figure(figsize=(4, 4))
+        plt.imshow(rgb)
+        plt.title(f"{class_id} - {label_name}")
+        plt.axis("off")
+        plt.show()
 
 
 class TiffDataModule(L.LightningDataModule):
