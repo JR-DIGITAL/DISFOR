@@ -73,9 +73,10 @@ class TiffDataset(Dataset):
             ]
         ]
         | None = None,
-        chip_size: int = 32,
+        chip_size: Literal[32, 16, 8, 4] = 32,
         confidence: List[Literal["high", "medium"]] | None = None,
         sample_dataset: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
+        min_clear_percentage: int = 99,
         max_days_since_event: int | dict | None = None,
         bands: List[
             Literal[
@@ -105,6 +106,7 @@ class TiffDataset(Dataset):
             chip_size: Size of the image chip. Maximum of 32x32
             confidence: Logged confidence of label interpretation. Either high or medium
             sample_dataset: Data from which sampling campaign should be included. Includes data from all by default (None)
+            min_clear_percentage: Minimum percent of pixels in the chip that has to be clear (SCL in 4,5,6) to be taken.
             max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
                 For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
                 with {211: 90}
@@ -180,34 +182,47 @@ class TiffDataset(Dataset):
             .filter(group_filters)
         )
 
-        day_filters = [pl.lit(False)]
+        max_duration_filters = [pl.lit(False)]
         match max_days_since_event:
             case dict():
                 for label, days in max_days_since_event.items():
                     if days is None:
                         continue
-                    day_filters.append(
+                    max_duration_filters.append(
                         (pl.col.duration_since_last_flag > pl.duration(days=days))
                         & (pl.col.label == label)
                     )
             case int():
-                day_filters.append(
+                max_duration_filters.append(
                     pl.col.duration_since_last_flag
                     > pl.duration(days=max_days_since_event)
                 )
 
+        labels = pl.read_parquet(
+            Path(data_folder) / "labels.parquet",
+            columns=["sample_id", "label", "start"],
+        ).with_columns(
+            # TODO: fix this in the data+data pipeline
+            pl.col.label.cast(pl.UInt16)
+        )
+
+        # get appropriate clear column for chip size
+        clear_column = f"percent_clear_{chip_size}x{chip_size}"
         filtered_dates = (
             pl.read_parquet(
                 Path(data_folder) / "pixel_data.parquet",
-                columns=["sample_id", "label", "timestamps"],
+                columns=["sample_id", "label", "timestamps", clear_column],
+            )
+            .filter(
+                pl.col("label").is_in(self.target_classes),
+                pl.col(clear_column) > min_clear_percentage,
+                pl.col("timestamps").dt.month().is_in(months),
+                ~pl.any_horizontal(max_duration_filters),
             )
             .join(groups, left_on="sample_id", right_on="sample_id", how="inner")
-            .filter(pl.col("label").is_in(self.target_classes))
+            .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
-                (
-                    pl.col("timestamps")
-                    - pl.col("timestamps").min().over("sample_id", "label")
-                ).alias("duration_since_last_flag"),
+                duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
                 path=pl.format(
                     "{}/{}/{}.tif",
                     pl.col.sample_id,
@@ -215,41 +230,15 @@ class TiffDataset(Dataset):
                     pl.col.timestamps.dt.strftime("%Y-%m-%d"),
                 ),
             )
-            .filter(
-                pl.col("timestamps").dt.month().is_in(months),
-                ~pl.any_horizontal(day_filters),
-            )
         )
 
-        # now subset to only the available tiffs (pixel_data.parquet at the moment has all acquisitions, even cloudy ones)
-        # however at the moment only cloud free tiffs exist in the folders
-        # in the future I might want to have all acquisitions as tiffs and filtering being done by pre-calculated clear % column in pixel_data
-        # but for now we have to intersect filtered acquisitions in dates parquet with actual available acquisitions in the file path
-        sample_ids = list(filtered_dates["sample_id"].unique())
-
         self.tiff_folder = Path(data_folder) / "tiffs"
-        tif_files = []
-        for sample_id in sample_ids:
-            for target_class in self.target_classes:
-                # Construct the path pattern
-                pattern_path = self.tiff_folder / str(sample_id) / str(target_class)
-
-                # Find all .tif files in this directory
-                if pattern_path.exists():
-                    tif_files.extend(pattern_path.glob("*.tif"))
-        available_tiffs = set("/".join(path.parts[-3:]) for path in tif_files)
-
-        # intersection of filtered and available
-        samples = (
-            filtered_dates.filter(pl.col.path.is_in(available_tiffs))
-            .with_columns(
-                labels_encoded=pl.col.label.replace_strict(class_mapping),
-                timestamps_str=pl.col.timestamps.dt.strftime("%Y-%m-%d"),
-            )
-            .select(
-                "labels_encoded",
-                "path",
-            )
+        samples = filtered_dates.with_columns(
+            labels_encoded=pl.col.label.replace_strict(class_mapping),
+            timestamps_str=pl.col.timestamps.dt.strftime("%Y-%m-%d"),
+        ).select(
+            "labels_encoded",
+            "path",
         )
 
         # Pre-compute paths and labels to avoid string ops in __getitem__
