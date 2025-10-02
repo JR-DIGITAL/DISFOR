@@ -2,7 +2,7 @@ from pathlib import Path
 import hashlib
 from dataclasses import dataclass, asdict, field
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
 import polars as pl
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
@@ -13,15 +13,44 @@ class ForestDisturbanceData:
     """Combined configuration and data preparation class"""
 
     # Class selection
-    target_classes: List[int]
-    class_mapping_overrides: Dict[int, str]
+    target_classes: List[
+            Literal[
+        100,
+        110,
+        120,
+        121,
+        122,
+        123,
+        200,
+        210,
+        211,
+        212,
+        213,
+        220,
+        221,
+        222,
+        230,
+        231,
+        232,
+        240,
+        241,
+        242,
+        244,
+        245,
+        246,
+    ]
+    ]
+    class_mapping_overrides: Dict[int, str] = field(
+        default_factory=lambda: {}
+    )
 
     # Filtering parameters
-    confidence_levels: List[str]
-    scl_values: List[int]
-    months_range: tuple  # (start_month, end_month)
-    duration_threshold_days: int
-    datasets: tuple = ("Evoland", "HRVPP", "Windthrow")
+    confidence: List[Literal["high", "medium"]] | None = None
+    valid_scl_values: List[Literal[0,1,2,3,4,5,6,7,8,9,10,11]] = field(
+        default_factory=lambda: [4,5,6])
+    months: List[Literal[1,2,3,4,5,6,7,8,9,10,11,12]] | None = None
+    max_days_since_event: int | dict | None = None,
+    sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None
 
     # Sampling parameters
     max_samples_per_event: Optional[int] = None
@@ -33,11 +62,11 @@ class ForestDisturbanceData:
     target_majority_samples: Optional[int] = None
 
     # Quality filters
-    exclude_tcd_comments: bool = True
-    exclude_border_comments: bool = True
+    omit_low_tcd: bool = True
+    omit_border: bool = True
 
     # Feature selection
-    feature_columns: List[str] = field(
+    bands: List[str] = field(
         default_factory=lambda: [
             "B02",
             "B03",
@@ -59,7 +88,7 @@ class ForestDisturbanceData:
     outlier_columns: Optional[List[str]] = None
 
     # Data path
-    base_data_path: str = "data/"
+    data_folder: str = "data/"
 
     # Private fields that will be populated after processing
     X_train: np.ndarray = field(init=False)
@@ -85,17 +114,17 @@ class ForestDisturbanceData:
         train_df = self._apply_balanced_sampling(train_df)
 
         # Train
-        self.X_train = train_df[self.feature_columns].to_numpy(writable=True)
+        self.X_train = train_df[self.bands].to_numpy(writable=True)
         self.y_train = train_df["labels_encoded"].to_numpy(writable=True)
         self.group_train = train_df["cluster_id_encoded"].to_numpy(writable=True)
         # Test
-        self.X_test = test_df[self.feature_columns].to_numpy(writable=True)
+        self.X_test = test_df[self.bands].to_numpy(writable=True)
         self.y_test = test_df["labels_encoded"].to_numpy(writable=True)
         self.group_test = test_df["cluster_id_encoded"].to_numpy(writable=True)
 
     def _load_base_data(self):
         """Load base data files"""
-        base_path = Path(self.base_data_path)
+        base_path = Path(self.data_folder)
 
         with open(base_path / "classes.json", "r") as f:
             self._class_mapping = {int(k): v for k, v in json.load(f).items()}
@@ -108,42 +137,59 @@ class ForestDisturbanceData:
 
     def _prepare_dataframes(self):
         """Load and prepare dataframes according to configuration"""
-        base_path = Path(self.base_data_path)
+        base_path = Path(self.data_folder)
+        max_duration_filters = [pl.lit(False)]
+        match self.max_days_since_event:
+            case dict():
+                for label, days in self.max_days_since_event.items():
+                    if days is None:
+                        continue
+                    max_duration_filters.append(
+                        (pl.col.duration_since_last_flag > pl.duration(days=days))
+                        & (pl.col.label == label)
+                    )
+            case int():
+                max_duration_filters.append(
+                    pl.col.duration_since_last_flag
+                    > pl.duration(days=self.max_days_since_event)
+                )
+
+        labels = pl.read_parquet(
+            Path(base_path) / "labels.parquet",
+            columns=["sample_id", "label", "start"],
+        ).with_columns(
+            # TODO: fix this in the data+data pipeline
+            pl.col.label.cast(pl.UInt16)
+        )
+
         # Load and filter pixel data
         signal_data = (
             pl.read_parquet(base_path / "pixel_data.parquet")
-            .filter(pl.col("labels").is_in(self.target_classes))
+            .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
                 pl.col.labels.replace(
                     self.class_mapping_overrides, return_dtype=pl.String
                 ),
-                (
-                    pl.col("timestamps")
-                    - pl.col("timestamps").min().over("sample_id", "labels")
-                ).alias("duration_since_last_flag"),
+                duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
             )
             .filter(
-                pl.col("timestamps")
-                .dt.month()
-                .is_between(self.months_range[0], self.months_range[1], closed="both"),
-                pl.col.SCL.is_in(self.scl_values),
-                (
-                    pl.col.duration_since_last_flag
-                    < pl.duration(days=self.duration_threshold_days)
-                )
-                | (pl.col.labels == "Mature Forest"),
+                pl.col("labels").is_in(self.target_classes),
+                pl.col("timestamps").dt.month().is_in(self.months),
+                pl.col.SCL.is_in(self.valid_scl_values),
+                ~pl.any_horizontal(max_duration_filters),
             )
         )
 
-        group_filters = [
-            pl.col.confidence.is_in(self.confidence_levels),
-            pl.col.dataset.is_in(self.datasets),
-        ]
+        group_filters = [pl.lit(True)]
 
         # Add quality filters
-        if self.exclude_tcd_comments:
+        if self.confidence is not None:
+            group_filters.append(pl.col.confidence.is_in(self.confidence))
+        if self.sample_datasets is not None:
+            group_filters.append(pl.col.dataset.is_in(self.sample_datasets))
+        if self.omit_low_tcd:
             group_filters.append(~pl.col.comment.str.contains("TCD"))
-        if self.exclude_border_comments:
+        if self.omit_border:
             group_filters.append(~pl.col.comment.str.contains("border"))
 
         # Load and filter groups data
@@ -287,7 +333,7 @@ class ForestDisturbanceData:
         outlier_cols = (
             self.outlier_columns
             if self.outlier_columns is not None
-            else self.feature_columns
+            else self.bands
         )
 
         original_len = len(df)

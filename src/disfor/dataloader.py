@@ -75,7 +75,7 @@ class TiffDataset(Dataset):
         | None = None,
         chip_size: Literal[32, 16, 8, 4] = 32,
         confidence: List[Literal["high", "medium"]] | None = None,
-        sample_dataset: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
+        sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
         min_clear_percentage: int = 99,
         max_days_since_event: int | dict | None = None,
         bands: List[
@@ -105,7 +105,7 @@ class TiffDataset(Dataset):
             target_classes: Which classes should be included
             chip_size: Size of the image chip. Maximum of 32x32
             confidence: Logged confidence of label interpretation. Either high or medium
-            sample_dataset: Data from which sampling campaign should be included. Includes data from all by default (None)
+            sample_datasets: Data from which sampling campaign should be included. Includes data from all by default (None)
             min_clear_percentage: Minimum percent of pixels in the chip that has to be clear (SCL in 4,5,6) to be taken.
             max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
                 For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
@@ -162,8 +162,8 @@ class TiffDataset(Dataset):
             group_filters.append(pl.col.sample_id.is_in(sample_ids))
         if confidence is not None:
             group_filters.append(pl.col.confidence.is_in(confidence))
-        if sample_dataset is not None:
-            group_filters.append(pl.col.dataset.is_in(sample_dataset))
+        if sample_datasets is not None:
+            group_filters.append(pl.col.dataset.is_in(sample_datasets))
         if omit_low_tcd:
             group_filters.append(~pl.col.comment.str.contains("TCD"))
         if omit_border:
@@ -213,12 +213,6 @@ class TiffDataset(Dataset):
                 Path(data_folder) / "pixel_data.parquet",
                 columns=["sample_id", "label", "timestamps", clear_column],
             )
-            .filter(
-                pl.col("label").is_in(self.target_classes),
-                pl.col(clear_column) > min_clear_percentage,
-                pl.col("timestamps").dt.month().is_in(months),
-                ~pl.any_horizontal(max_duration_filters),
-            )
             .join(groups, left_on="sample_id", right_on="sample_id", how="inner")
             .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
@@ -229,6 +223,12 @@ class TiffDataset(Dataset):
                     pl.col.label,
                     pl.col.timestamps.dt.strftime("%Y-%m-%d"),
                 ),
+            )
+            .filter(
+                pl.col("label").is_in(self.target_classes),
+                pl.col(clear_column) > min_clear_percentage,
+                pl.col("timestamps").dt.month().is_in(months),
+                ~pl.any_horizontal(max_duration_filters),
             )
         )
 
