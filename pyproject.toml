@@ -21,6 +21,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "plotnine>=0.15.0",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
 ]
