@@ -48,7 +48,9 @@ class ForestDisturbanceData:
     confidence: List[Literal["high", "medium"]] | None = None
     valid_scl_values: List[Literal[0,1,2,3,4,5,6,7,8,9,10,11]] = field(
         default_factory=lambda: [4,5,6])
-    months: List[Literal[1,2,3,4,5,6,7,8,9,10,11,12]] | None = None
+    months: List[Literal[1,2,3,4,5,6,7,8,9,10,11,12]] = field(
+        default_factory=lambda: list(range(1,13))
+    )
     max_days_since_event: int | dict | None = None,
     sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None
 
@@ -167,13 +169,13 @@ class ForestDisturbanceData:
             pl.read_parquet(base_path / "pixel_data.parquet")
             .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
-                pl.col.labels.replace(
-                    self.class_mapping_overrides, return_dtype=pl.String
+                pl.col.label.replace(
+                    self.class_mapping_overrides, return_dtype=pl.UInt16
                 ),
                 duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
             )
             .filter(
-                pl.col("labels").is_in(self.target_classes),
+                pl.col("label").is_in(self.target_classes),
                 pl.col("timestamps").dt.month().is_in(self.months),
                 pl.col.SCL.is_in(self.valid_scl_values),
                 ~pl.any_horizontal(max_duration_filters),
@@ -219,7 +221,7 @@ class ForestDisturbanceData:
 
         # Create label encoder
         le = LabelEncoder()
-        le.fit(signal_data_with_cluster["labels"])
+        le.fit(signal_data_with_cluster["label"])
         self.label_encoder = le
 
         # Split into train and test sets
@@ -237,19 +239,19 @@ class ForestDisturbanceData:
                 pl.set_random_seed(self.random_seed)
 
             train_data_pl = train_data_pl.filter(
-                pl.int_range(pl.len()).over(["sample_id", "labels"])
+                pl.int_range(pl.len()).over(["sample_id", "label"])
                 < self.max_samples_per_event
             )
 
         # Prepare final dataframes with encoded labels
         train_df = train_data_pl.with_columns(
             pl.Series(
-                "labels_encoded", le.transform(train_data_pl["labels"].to_list())
+                "labels_encoded", le.transform(train_data_pl["label"].to_list())
             ),
         )
 
         test_df = test_data_pl.with_columns(
-            pl.Series("labels_encoded", le.transform(test_data_pl["labels"].to_list())),
+            pl.Series("labels_encoded", le.transform(test_data_pl["label"].to_list())),
         )
 
         return train_df, test_df
@@ -342,8 +344,8 @@ class ForestDisturbanceData:
         total_outliers_removed = 0
 
         # Process each target class separately
-        for label in df["labels"].unique().to_list():
-            class_df = df.filter(pl.col("labels") == label)
+        for label in df["label"].unique().to_list():
+            class_df = df.filter(pl.col("label") == label)
             class_original_len = len(class_df)
 
             if class_original_len == 0:

@@ -7,7 +7,6 @@ def test_init():
         confidence=["high"],
         sample_datasets=["HRVPP", "Windthrow"],
         max_days_since_event=None,
-        bands=None,
         months=[4,5,6,7,8],
         omit_border=True,
         omit_low_tcd=True,
