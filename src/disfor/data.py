@@ -14,44 +14,43 @@ class ForestDisturbanceData:
 
     # Class selection
     target_classes: List[
-            Literal[
-        100,
-        110,
-        120,
-        121,
-        122,
-        123,
-        200,
-        210,
-        211,
-        212,
-        213,
-        220,
-        221,
-        222,
-        230,
-        231,
-        232,
-        240,
-        241,
-        242,
-        244,
-        245,
-        246,
+        Literal[
+            100,
+            110,
+            120,
+            121,
+            122,
+            123,
+            200,
+            210,
+            211,
+            212,
+            213,
+            220,
+            221,
+            222,
+            230,
+            231,
+            232,
+            240,
+            241,
+            242,
+            244,
+            245,
+            246,
+        ]
     ]
-    ]
-    class_mapping_overrides: Dict[int, str] = field(
-        default_factory=lambda: {}
-    )
+    class_mapping_overrides: Dict[int, str] = field(default_factory=lambda: {})
 
     # Filtering parameters
     confidence: List[Literal["high", "medium"]] | None = None
-    valid_scl_values: List[Literal[0,1,2,3,4,5,6,7,8,9,10,11]] = field(
-        default_factory=lambda: [4,5,6])
-    months: List[Literal[1,2,3,4,5,6,7,8,9,10,11,12]] = field(
-        default_factory=lambda: list(range(1,13))
+    valid_scl_values: List[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]] = field(
+        default_factory=lambda: [4, 5, 6]
     )
-    max_days_since_event: int | dict | None = None,
+    months: List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] = field(
+        default_factory=lambda: list(range(1, 13))
+    )
+    max_days_since_event: int | dict | None = (None,)
     sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None
 
     # Sampling parameters
@@ -169,8 +168,10 @@ class ForestDisturbanceData:
             pl.read_parquet(base_path / "pixel_data.parquet")
             .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
-                pl.col.label.replace(
-                    self.class_mapping_overrides, return_dtype=pl.UInt16
+                pl.col.label.replace_strict(
+                    self.class_mapping_overrides,
+                    return_dtype=pl.UInt16,
+                    default=pl.col.label,
                 ),
                 duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
             )
@@ -245,9 +246,7 @@ class ForestDisturbanceData:
 
         # Prepare final dataframes with encoded labels
         train_df = train_data_pl.with_columns(
-            pl.Series(
-                "labels_encoded", le.transform(train_data_pl["label"].to_list())
-            ),
+            pl.Series("labels_encoded", le.transform(train_data_pl["label"].to_list())),
         )
 
         test_df = test_data_pl.with_columns(
@@ -333,9 +332,7 @@ class ForestDisturbanceData:
 
         # Determine columns to check for outliers
         outlier_cols = (
-            self.outlier_columns
-            if self.outlier_columns is not None
-            else self.bands
+            self.outlier_columns if self.outlier_columns is not None else self.bands
         )
 
         original_len = len(df)

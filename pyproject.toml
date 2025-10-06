@@ -18,10 +18,12 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "tifffile>=2025.9.30",
     "torch>=2.8.0",
+    "zstandard>=0.25.0",
 ]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.140.3",
     "plotnine>=0.15.0",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",

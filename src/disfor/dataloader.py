@@ -44,7 +44,7 @@ class TiffDataset(Dataset):
     def __init__(
         self,
         data_folder: str,
-        sample_ids: List[str] | None = None,
+        sample_ids: List[int] | None = None,
         target_classes: List[
             Literal[
                 100,
