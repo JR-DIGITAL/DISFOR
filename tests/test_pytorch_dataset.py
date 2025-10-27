@@ -207,6 +207,7 @@ def test_tiff_dataset_chip_sizes(chip_size):
 
     if len(dataset) > 0:
         item = dataset[0]
+        assert item["image"].shape == (10, chip_size, chip_size)
         # Assuming the item returns a tuple/dict with image data
         # Add specific assertions based on your actual data structure
         assert item is not None

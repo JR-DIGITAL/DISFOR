@@ -241,7 +241,12 @@ class TiffDataset(Dataset):
             "path",
         )
 
-        # Pre-compute paths and labels to avoid string ops in __getitem__
+        # Pre-compute paths, labels, and chip indices to avoid string ops in __getitem__
+        tiff_half_size = 32 // 2
+        self.chip_range = (
+            tiff_half_size - self.chip_size // 2,
+            tiff_half_size + self.chip_size // 2,
+        )
         self.file_paths = []
         self.labels = []
         for i in range(len(samples)):
@@ -253,7 +258,14 @@ class TiffDataset(Dataset):
 
     def __getitem__(self, idx):
         scale_factor = 10000
-        arr = tifffile.imread(self.file_paths[idx]) / scale_factor
+        arr = (
+            tifffile.imread(self.file_paths[idx])[
+                self.chip_range[0] : self.chip_range[1],
+                self.chip_range[0] : self.chip_range[1],
+                self.band_idxs,
+            ]
+            / scale_factor
+        )
         return {
             "image": torch.from_numpy(arr).permute(2, 0, 1),
             "label": torch.tensor(self.labels[idx]),
@@ -300,8 +312,6 @@ class TiffDataset(Dataset):
 
 class TiffDataModule(L.LightningDataModule):
     """
-    Data module for loading and transforming the EuroSAT dataset.
-
     Args:
         batch_size (int): Batch size for the dataloaders.
         num_workers (int): Number of workers for data loading.
