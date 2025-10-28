@@ -152,7 +152,7 @@ class TiffDataset(Dataset):
             "B12",
             "SCL",
         ]
-        self.band_idxs = [all_bands.index(band) + 1 for band in self.bands]
+        self.band_idxs = [all_bands.index(band) for band in self.bands]
 
         if months is None:
             months = list(range(1, 13))
@@ -267,11 +267,9 @@ class TiffDataset(Dataset):
             / scale_factor
         )
         return {
-            "image": torch.from_numpy(arr).permute(2, 0, 1),
+            "image": torch.from_numpy(arr).permute(2, 0, 1).float(),
             "label": torch.tensor(self.labels[idx]),
-            # Figure out how to pass timestamp and id, so results can be better interpreted
-            #'timestamp': self.samples["timestamps_str"][idx],
-            #'id': self.samples["sample_id"][idx],
+            "path": str(self.file_paths[idx]),
         }
 
     def plot_chip(self, idx: int):
@@ -300,7 +298,7 @@ class TiffDataset(Dataset):
         rgb = np.stack([img[r], img[g], img[b]], axis=-1)
 
         # Normalize for display
-        gain = 3
+        gain = 5
         rgb = np.clip(rgb * gain, 0, 1)
 
         plt.figure(figsize=(4, 4))
@@ -319,12 +317,28 @@ class TiffDataModule(L.LightningDataModule):
         statistics.
     """
 
-    def __init__(self, batch_size, num_workers, persist_workers=True, classes=None):
+    def __init__(
+        self,
+        batch_size,
+        num_workers,
+        persist_workers=True,
+        classes=None,
+        train_ids=None,
+        val_ids=None,
+    ):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.classes = classes if classes is not None else [110, 211, 231, 242, 244]
         self.persist_workers = persist_workers
+        self.train_ids = train_ids
+        self.val_ids = val_ids
+        if self.train_ids is None:
+            with open("./data/train_ids.json", "r") as f:
+                self.train_ids = json.load(f)
+        if self.val_ids is None:
+            with open("./data/val_ids.json", "r") as f:
+                self.val_ids = json.load(f)
 
     def setup(self, stage=None):
         """
@@ -334,15 +348,11 @@ class TiffDataModule(L.LightningDataModule):
             stage (str): Stage of the training process ('fit', 'validate',
             etc.).
         """
-        with open("./data/train_ids.json", "r") as f:
-            train_ids = json.load(f)
-        with open("./data/val_ids.json", "r") as f:
-            val_ids = json.load(f)
         if stage in {"fit", None}:
             self.trn_ds = TiffDataset(
                 data_folder="./data/",
                 target_classes=self.classes,
-                sample_ids=train_ids,
+                sample_ids=self.train_ids,
                 confidence=["high"],
                 max_days_since_event={211: 90},
                 omit_border=True,
@@ -351,7 +361,7 @@ class TiffDataModule(L.LightningDataModule):
             self.val_ds = TiffDataset(
                 data_folder="./data/",
                 target_classes=self.classes,
-                sample_ids=val_ids,
+                sample_ids=self.val_ids,
                 confidence=["high"],
                 max_days_since_event={211: 90},
                 omit_border=True,

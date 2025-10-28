@@ -1,6 +1,49 @@
 import zstandard as zstd
 import tarfile
 import glob
+from pathlib import Path
+
+import polars as pl
+
+
+def generate_folds(n_folds: int, data_folder="data"):
+    from sklearn.model_selection import StratifiedGroupKFold
+
+    groups = pl.read_parquet(
+        Path(data_folder) / "samples.parquet",
+        columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
+        use_pyarrow=True,
+    )
+    # sample_ids in HRVPP not highly correlated -> use sample_id as group
+    # Evoland: Group by cluster_id
+    # Windthrow: Group by Wind Event
+    clusters = groups.with_columns(
+        cluster=pl.when(dataset="HRVPP")
+        .then(pl.col.sample_id.cast(pl.String))
+        .otherwise(pl.format("{}{}", pl.col.dataset, pl.col.cluster_id))
+    )
+    samples_w_clusters = (
+        pl.read_parquet(Path(data_folder) / "labels.parquet")
+        .join(clusters.select("sample_id", "cluster"), on="sample_id")
+        .sort("cluster")
+        .with_columns(
+            pl.col.label.cast(pl.Int16),
+            cluster_int=pl.col("cluster").rle_id(),
+        )
+    )
+    sgkf = StratifiedGroupKFold(n_splits=n_folds)
+    splits = sgkf.split(
+        X=samples_w_clusters["label"],
+        y=samples_w_clusters["label"],
+        groups=samples_w_clusters["cluster_int"],
+    )
+    folds = {}
+    sample_ids = samples_w_clusters["sample_id"].to_numpy()
+    for i, (train_index, test_index) in enumerate(splits):
+        folds[i] = {}
+        folds[i]["train_ids"] = set(sample_ids[train_index].tolist())
+        folds[i]["val_ids"] = set(sample_ids[test_index].tolist())
+    return folds
 
 
 def extract_multipart(pattern):
