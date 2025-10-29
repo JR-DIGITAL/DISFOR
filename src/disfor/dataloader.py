@@ -8,7 +8,6 @@ from torch.utils.data import Dataset, DataLoader
 import polars as pl
 import lightning as L
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 
 CLASSES = {
@@ -73,6 +72,9 @@ class TiffDataset(Dataset):
             ]
         ]
         | None = None,
+        label_strategy: Literal[
+            "LabelEncoder", "LabelBinarizer", "Hierarchical"
+        ] = "LabelEncoder",
         chip_size: Literal[32, 16, 8, 4] = 32,
         confidence: List[Literal["high", "medium"]] | None = None,
         sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
@@ -132,12 +134,17 @@ class TiffDataset(Dataset):
 
         # redo this, we don't need to filter at all if these are None
         self.target_classes = target_classes or list(CLASSES.keys())
-        self.encoder = LabelEncoder()
+        match label_strategy:
+            case "LabelEncoder":
+                from sklearn.preprocessing import LabelEncoder
+
+                self.encoder = LabelEncoder()
+            case "LabelBinarizer":
+                from sklearn.preprocessing import LabelBinarizer
+
+                self.encoder = LabelBinarizer()
+
         self.encoder.fit(self.target_classes)
-        class_mapping = {
-            class_name: encoded_value
-            for encoded_value, class_name in enumerate(self.encoder.classes_)
-        }
 
         all_bands = [
             "B02",
@@ -233,11 +240,8 @@ class TiffDataset(Dataset):
         )
 
         self.tiff_folder = Path(data_folder) / "tiffs"
-        samples = filtered_dates.with_columns(
-            labels_encoded=pl.col.label.replace_strict(class_mapping),
-            timestamps_str=pl.col.timestamps.dt.strftime("%Y-%m-%d"),
-        ).select(
-            "labels_encoded",
+        samples = filtered_dates.select(
+            "label",
             "path",
         )
 
@@ -247,11 +251,18 @@ class TiffDataset(Dataset):
             tiff_half_size - self.chip_size // 2,
             tiff_half_size + self.chip_size // 2,
         )
-        self.file_paths = []
-        self.labels = []
-        for i in range(len(samples)):
-            self.file_paths.append(self.tiff_folder / samples["path"][i])
-            self.labels.append(samples["labels_encoded"][i])
+        self.file_paths = [self.tiff_folder / path for path in samples["path"]]
+        self.labels = self.encoder.transform(samples["label"])
+        match label_strategy:
+            case "LabelEncoder":
+                class_counts = np.unique_counts(self.labels).counts
+                self.class_weights = torch.from_numpy(
+                    class_counts.sum() / class_counts
+                ).float()
+            case "LabelBinarizer":
+                self.class_weights = torch.from_numpy(
+                    self.labels.sum() / self.labels.sum(axis=0)
+                ).float()
 
     def __len__(self):
         return len(self.labels)
@@ -268,7 +279,7 @@ class TiffDataset(Dataset):
         )
         return {
             "image": torch.from_numpy(arr).permute(2, 0, 1).float(),
-            "label": torch.tensor(self.labels[idx]),
+            "label": torch.tensor(self.labels[idx]).float(),
             "path": str(self.file_paths[idx]),
         }
 
@@ -279,10 +290,10 @@ class TiffDataset(Dataset):
         """
         sample = self[idx]
         img = sample["image"].numpy()  # shape: (C, H, W)
-        label_idx = sample["label"].item()
+        label_idx = sample["label"].numpy()
 
         # Map encoded label back to original class id + name
-        class_id = self.encoder.inverse_transform([label_idx])[0]
+        class_id = self.encoder.inverse_transform(label_idx[np.newaxis, ...])[0]
         label_name = CLASSES[class_id]
 
         # original band order in self.bands
@@ -323,6 +334,9 @@ class TiffDataModule(L.LightningDataModule):
         num_workers,
         persist_workers=True,
         classes=None,
+        label_strategy: Literal[
+            "LabelEncoder", "LabelBinarizer", "Hierarchical"
+        ] = "LabelBinarizer",
         train_ids=None,
         val_ids=None,
     ):
@@ -333,6 +347,7 @@ class TiffDataModule(L.LightningDataModule):
         self.persist_workers = persist_workers
         self.train_ids = train_ids
         self.val_ids = val_ids
+        self.label_strategy = label_strategy
         if self.train_ids is None:
             with open("./data/train_ids.json", "r") as f:
                 self.train_ids = json.load(f)
@@ -353,6 +368,7 @@ class TiffDataModule(L.LightningDataModule):
                 data_folder="./data/",
                 target_classes=self.classes,
                 sample_ids=self.train_ids,
+                label_strategy=self.label_strategy,
                 confidence=["high"],
                 max_days_since_event={211: 90},
                 omit_border=True,
@@ -362,11 +378,13 @@ class TiffDataModule(L.LightningDataModule):
                 data_folder="./data/",
                 target_classes=self.classes,
                 sample_ids=self.val_ids,
+                label_strategy=self.label_strategy,
                 confidence=["high"],
                 max_days_since_event={211: 90},
                 omit_border=True,
                 omit_low_tcd=True,
             )
+            self.class_weights = self.trn_ds.class_weights
 
     def train_dataloader(self):
         """
