@@ -143,6 +143,10 @@ class TiffDataset(Dataset):
                 from sklearn.preprocessing import LabelBinarizer
 
                 self.encoder = LabelBinarizer()
+            case "Hierarchical":
+                from disfor.utils import HierarchicalLabelEncoder
+
+                self.encoder = HierarchicalLabelEncoder()
 
         self.encoder.fit(self.target_classes)
 
@@ -263,6 +267,9 @@ class TiffDataset(Dataset):
                 self.class_weights = torch.from_numpy(
                     self.labels.sum() / self.labels.sum(axis=0)
                 ).float()
+            case "Hierarchical":
+                # don't have weights yet
+                self.class_weights = torch.ones(self.labels[0].shape)
 
     def __len__(self):
         return len(self.labels)
