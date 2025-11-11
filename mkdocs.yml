@@ -1,0 +1,74 @@
+site_name: DISFOR - Labelled Forest Disturbance Agent time-series 
+theme:
+  name: material
+  features:
+    - navigation.path
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.indexes
+    - navigation.tracking
+    - content.code.annotate
+    - toc.follow
+    - navigation.footer
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+  palette:
+
+  # Palette toggle for light mode
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+
+  # Palette toggle for dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    toggle:
+      icon: material/brightness-4
+      name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.snippets:
+  - pymdownx.magiclink:
+  - attr_list:
+  - toc:
+      anchorlink: true
+      anchorlink_class: "toclink"
+  - md_in_html:
+  - pymdownx.inlinehilite:
+  - pymdownx.superfences:
+  - markdown.extensions.attr_list:
+  - pymdownx.keys:
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google  # or numpy, sphinx
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+  - mkdocs-jupyter
+
+nav:
+  - index.md
+  - Usage:
+    - Data Overview: Usage/dataset-overview.ipynb
+    #- Data Visualization: tutorials/data_viz.ipynb
+  - reference.md

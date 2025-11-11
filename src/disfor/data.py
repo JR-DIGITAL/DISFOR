@@ -10,7 +10,35 @@ import numpy as np
 
 @dataclass
 class ForestDisturbanceData:
-    """Combined configuration and data preparation class"""
+    """Combined configuration and data preparation class
+
+    Args:
+        data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet
+        target_classes: Which classes should be included
+        class_mapping_overrides: Map classes to other classes for example {221: 211, 222: 211} would map both of the salvage classes to clear cut.
+        confidence: Logged confidence of label interpretation.
+        valid_scl_values: List of valid SCL values. Used to filter out cloudy or otherwise unusable observations
+        months: List of months to sample acquisitions from. January is 1, December is 12.
+        max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
+            For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
+            with {211: 90}
+        sample_datasets: Data from which sampling campaign should be included. Includes data from all by default (None)
+        max_samples_per_event: Maximum number of acquisitions to include per event. Can be used to reduce number of samples
+            drawn from segments with long durations. For example to reduce the number of healthy acquistions
+        random_seed: Random seed used for reproducible subsampling operations
+        use_balanced_sampling: Flag if balanced sampling should be used. Balanced sampling will either upsample or downsample classes
+            to achieve a balanced class distribution
+        target_majority_samples: How many samples the majority class should have after balancing
+        omit_border: Omit samples which have "border" in the comment. These are usually samples where the sample is a mixed pixel
+        omit_low_tcd: Omit samples which have "TCD" in the comment. These are usually samples where the forest has a low tree cover density (for example olive plantations)
+        bands: Spectral bands to include
+        remove_outliers: Flag if outliers should be removed. This is used to remove clouds or other data artifacts
+            which were not masked through the SCL values.
+        outlier_method: Statistical method used to determine outliers
+        outlier_threshold: Which threshold to apply, acquisitions greater than that threshold will be removed
+        outlier_columns: Which columns (bands) to search for outliers. If an outlier is detected in any of the bands
+            it will be removed. Default is all bands which are defined in the parameter `bands`
+    """
 
     # Class selection
     target_classes: List[
@@ -40,7 +68,7 @@ class ForestDisturbanceData:
             246,
         ]
     ]
-    class_mapping_overrides: Dict[int, str] = field(default_factory=lambda: {})
+    class_mapping_overrides: Dict[int, int] = field(default_factory=lambda: {})
 
     # Filtering parameters
     confidence: List[Literal["high", "medium"]] | None = None
@@ -59,7 +87,6 @@ class ForestDisturbanceData:
 
     # Balanced sampling parameters
     use_balanced_sampling: bool = False
-    balance_method: str = "downsample_majority"
     target_majority_samples: Optional[int] = None
 
     # Quality filters
@@ -84,9 +111,24 @@ class ForestDisturbanceData:
 
     # Outlier removal parameters
     remove_outliers: bool = False
-    outlier_method: str = "iqr"
+    outlier_method: Literal["iqr", "zscore", "modified_zscore"] = "iqr"
     outlier_threshold: float = 1.5
-    outlier_columns: Optional[List[str]] = None
+    outlier_columns: Optional[
+        List[
+            Literal[
+                "B02",
+                "B03",
+                "B04",
+                "B05",
+                "B06",
+                "B07",
+                "B08",
+                "B8A",
+                "B11",
+                "B12",
+            ]
+        ]
+    ] = None
 
     # Data path
     data_folder: str = "data/"

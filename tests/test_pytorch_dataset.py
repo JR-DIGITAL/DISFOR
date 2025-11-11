@@ -1,6 +1,6 @@
 import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
-from disfor.dataloader import TiffDataset
+from disfor.torch import TiffDataset
 
 
 def test_dataset_init():
