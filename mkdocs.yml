@@ -69,6 +69,6 @@ plugins:
 nav:
   - index.md
   - Usage:
-    - Data Overview: Usage/dataset-overview.ipynb
-    #- Data Visualization: tutorials/data_viz.ipynb
+    - Data Overview: usage/dataset-overview.ipynb
+    - Data Loaders: usage/dataloaders.ipynb
   - reference.md

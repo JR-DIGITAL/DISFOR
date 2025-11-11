@@ -294,9 +294,8 @@ class TiffDataset(Dataset):
             .with_columns(
                 duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
                 path=pl.format(
-                    "{}/{}/{}.tif",
+                    "{}/{}.tif",
                     pl.col.sample_id,
-                    pl.col.label,
                     pl.col.timestamps.dt.strftime("%Y-%m-%d"),
                 ),
             )
