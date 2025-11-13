@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 class TiffDatasetArgs(TypedDict, total=False):
     """Shared arguments for TiffDataset initialization."""
 
-    data_folder: str  # Required, but handled separately in __init__
+    data_folder: str | None  # Required, but handled separately in __init__
     sample_ids: List[int] | None
     target_classes: (
         List[
@@ -107,7 +107,7 @@ class TiffDataset(Dataset):
 
     def __init__(
         self,
-        data_folder: str,
+        data_folder: str | None,
         sample_ids: List[int] | None = None,
         target_classes: List[
             Literal[
@@ -168,6 +168,7 @@ class TiffDataset(Dataset):
         """
         Args:
             data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet
+                if None, the data will by dynamically downloaded from Huggingface
             sample_ids: List of sample_ids that should be included. Used for example to subset train and test splits
             target_classes: Which classes should be included
             chip_size: Size of the image chip. Maximum of 32x32
@@ -245,10 +246,29 @@ class TiffDataset(Dataset):
         if omit_border:
             group_filters.append(~pl.col.comment.str.contains("border"))
 
+        required_data = [
+            "classes.json",
+            "train_ids.json",
+            "val_ids.json",
+            "labels.parquet",
+            "pixel_data.parquet",
+            "samples.parquettiffs",
+        ]
+        if data_folder is None:
+            from disfor.datasets import DATA_GETTER
+
+            self.base_data_paths = {
+                filename: DATA_GETTER.fetch(filename) for filename in required_data
+            }
+        else:
+            self.base_data_paths = {
+                filename: Path(data_folder) / filename for filename in required_data
+            }
+
         # Load and filter groups data
         groups = (
             pl.read_parquet(
-                Path(data_folder) / "samples.parquet",
+                self.base_data_paths["samples.parquet"],
                 columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
                 use_pyarrow=True,
             )
@@ -275,7 +295,7 @@ class TiffDataset(Dataset):
                 )
 
         labels = pl.read_parquet(
-            Path(data_folder) / "labels.parquet",
+            self.base_data_paths["labels.parquet"],
             columns=["sample_id", "label", "start"],
         ).with_columns(
             # TODO: fix this in the data+data pipeline
@@ -286,7 +306,7 @@ class TiffDataset(Dataset):
         clear_column = f"percent_clear_{chip_size}x{chip_size}"
         filtered_dates = (
             pl.read_parquet(
-                Path(data_folder) / "pixel_data.parquet",
+                self.base_data_paths["pixel_data.parquet"],
                 columns=["sample_id", "label", "timestamps", clear_column],
             )
             .join(groups, left_on="sample_id", right_on="sample_id", how="inner")
@@ -307,7 +327,7 @@ class TiffDataset(Dataset):
             )
         )
 
-        self.tiff_folder = Path(data_folder) / "tiffs"
+        self.tiff_folder = self.base_data_paths["tiffs.parquet"]
         samples = filtered_dates.select(
             "label",
             "path",

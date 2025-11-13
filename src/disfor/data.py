@@ -7,6 +7,8 @@ import polars as pl
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 
+from disfor.datasets import DATA_GETTER
+
 
 @dataclass
 class ForestDisturbanceData:
@@ -39,6 +41,9 @@ class ForestDisturbanceData:
         outlier_columns: Which columns (bands) to search for outliers. If an outlier is detected in any of the bands
             it will be removed. Default is all bands which are defined in the parameter `bands`
     """
+
+    # Data path
+    data_folder: str | None = None
 
     # Class selection
     target_classes: List[
@@ -130,9 +135,6 @@ class ForestDisturbanceData:
         ]
     ] = None
 
-    # Data path
-    data_folder: str = "data/"
-
     # Private fields that will be populated after processing
     X_train: np.ndarray = field(init=False)
     y_train: np.ndarray = field(init=False)
@@ -167,20 +169,35 @@ class ForestDisturbanceData:
 
     def _load_base_data(self):
         """Load base data files"""
-        base_path = Path(self.data_folder)
+        required_data = [
+            "classes.json",
+            "train_ids.json",
+            "val_ids.json",
+            "labels.parquet",
+            "pixel_data.parquet",
+            "samples.parquet",
+        ]
+        if self.data_folder is None:
+            self.base_data_paths = {
+                filename: DATA_GETTER.fetch(filename) for filename in required_data
+            }
+        else:
+            self.base_data_paths = {
+                filename: Path(self.data_folder) / filename
+                for filename in required_data
+            }
 
-        with open(base_path / "classes.json", "r") as f:
+        with open(self.base_data_paths["classes.json"], "r") as f:
             self._class_mapping = {int(k): v for k, v in json.load(f).items()}
 
-        with open(base_path / "train_ids.json", "r") as f:
+        with open(self.base_data_paths["train_ids.json"], "r") as f:
             self._train_ids = json.load(f)
 
-        with open(base_path / "val_ids.json", "r") as f:
+        with open(self.base_data_paths["val_ids.json"], "r") as f:
             self._val_ids = json.load(f)
 
     def _prepare_dataframes(self):
         """Load and prepare dataframes according to configuration"""
-        base_path = Path(self.data_folder)
         max_duration_filters = [pl.lit(False)]
         match self.max_days_since_event:
             case dict():
@@ -198,16 +215,13 @@ class ForestDisturbanceData:
                 )
 
         labels = pl.read_parquet(
-            Path(base_path) / "labels.parquet",
+            self.base_data_paths["labels.parquet"],
             columns=["sample_id", "label", "start"],
-        ).with_columns(
-            # TODO: fix this in the data+data pipeline
-            pl.col.label.cast(pl.UInt16)
         )
 
         # Load and filter pixel data
         signal_data = (
-            pl.read_parquet(base_path / "pixel_data.parquet")
+            pl.read_parquet(self.base_data_paths["pixel_data.parquet"])
             .join(labels, on=["sample_id", "label"], how="inner")
             .with_columns(
                 pl.col.label.replace_strict(
@@ -240,7 +254,7 @@ class ForestDisturbanceData:
         # Load and filter groups data
         groups = (
             pl.read_parquet(
-                base_path / "samples.parquet",
+                self.base_data_paths["samples.parquet"],
                 columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
                 use_pyarrow=True,
             )

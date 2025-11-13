@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
     "polars>=1.33.1",
+    "pooch>=1.8.2",
     "pyarrow>=21.0.0",
     "scikit-learn>=1.7.2",
     "tifffile>=2025.9.30",
