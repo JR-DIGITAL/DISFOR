@@ -18,11 +18,8 @@ class TiffDataset(GenericDataset, Dataset):
 
     def __init__(
         self,
-        label_strategy: Literal[
-            "LabelEncoder", "LabelBinarizer", "Hierarchical"
-        ] = "LabelEncoder",
         # TODO implement sample id subset
-        sample_ids: [] = None,
+        sample_ids: List[int] | None = None,
         *args,
         **kwargs
     ):
@@ -45,34 +42,23 @@ class TiffDataset(GenericDataset, Dataset):
             omit_low_tcd: Omit samples which have "TCD" in the comment. These are usually samples where the forest has a low tree cover density (for example olive plantations)
         """
         super().__init__(*args, **kwargs)
-        match label_strategy:
-            case "LabelEncoder":
-                from sklearn.preprocessing import LabelEncoder
-
-                self.encoder = LabelEncoder()
-            case "LabelBinarizer":
-                from sklearn.preprocessing import LabelBinarizer
-
-                self.encoder = LabelBinarizer()
-            case "Hierarchical":
-                from disfor.utils import HierarchicalLabelEncoder
-
-                self.encoder = HierarchicalLabelEncoder()
-
-        self.encoder.fit(self.target_classes)
-
         if self.data_folder is None:
             from disfor.data_fetcher import fetch_s2_chips
             self.tiff_folder = fetch_s2_chips()
         else:
             self.tiff_folder = Path(self.data_folder) / "tiffs"
-        samples = self.pixel_data.select(
-            "label",
-            path=pl.format(
-                "{}/{}.tif",
-                pl.col.sample_id,
-                pl.col.timestamps.dt.strftime("%Y-%m-%d"),
-            ),
+        if sample_ids is not None:
+            self.pixel_data = self.pixel_data.filter(pl.col.sample_id.is_in(sample_ids))
+        samples = (
+            self.pixel_data
+            .select(
+                "label",
+                path=pl.format(
+                    "{}/{}.tif",
+                    pl.col.sample_id,
+                    pl.col.timestamps.dt.strftime("%Y-%m-%d"),
+                ),
+            )
         )
 
         # Pre-compute paths, labels, and chip indices to avoid string ops in __getitem__
@@ -83,7 +69,7 @@ class TiffDataset(GenericDataset, Dataset):
         )
         self.file_paths = [self.tiff_folder / path for path in samples["path"]]
         self.labels = self.encoder.transform(samples["label"])
-        match label_strategy:
+        match self.label_strategy:
             case "LabelEncoder":
                 class_counts = np.unique_counts(self.labels).counts
                 self.class_weights = torch.from_numpy(

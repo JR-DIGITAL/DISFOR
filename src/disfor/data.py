@@ -105,6 +105,10 @@ class GenericDataset():
                 ]
             ]
             | None = None,
+
+        label_strategy: Literal[
+            "LabelEncoder", "LabelBinarizer", "Hierarchical"
+        ] = "LabelEncoder",
     ):
         self.random_seed = random_seed
         self.data_folder = data_folder
@@ -131,6 +135,7 @@ class GenericDataset():
         self.outlier_columns = outlier_columns
         self.class_mapping_overrides = class_mapping_overrides or {}
         self.chip_size = chip_size
+        self.label_strategy = label_strategy
 
 
         # Filters for samples.parquet
@@ -236,8 +241,27 @@ class GenericDataset():
             pixel_data = self._apply_balanced_sampling(
                 pixel_data, target_majority_samples
             )
+
+        match label_strategy:
+            case "LabelEncoder":
+                from sklearn.preprocessing import LabelEncoder
+
+                self.encoder = LabelEncoder()
+            case "LabelBinarizer":
+                from sklearn.preprocessing import LabelBinarizer
+
+                self.encoder = LabelBinarizer()
+            case "Hierarchical":
+                from disfor.utils import HierarchicalLabelEncoder
+
+                self.encoder = HierarchicalLabelEncoder()
+
+        self.encoder.fit(self.target_classes)
+
         
-        self.pixel_data = pixel_data
+        self.pixel_data = pixel_data.with_columns(
+            label_encoded=pl.Series(self.encoder.transform(pixel_data["label"]))
+        )
         
         
     def _load_base_data(self):
@@ -338,7 +362,6 @@ class GenericDataset():
         return df.filter(~pl.any_horizontal(mask)) 
 
 
-@dataclass
 class ForestDisturbanceData(GenericDataset):
     """Combined configuration and data preparation class
 
@@ -369,60 +392,20 @@ class ForestDisturbanceData(GenericDataset):
         outlier_columns: Which columns (bands) to search for outliers. If an outlier is detected in any of the bands
             it will be removed. Default is all bands which are defined in the parameter `bands`
     """
-    # Private fields that will be populated after processing
-    X_train: np.ndarray = field(init=False)
-    y_train: np.ndarray = field(init=False)
-    X_test: np.ndarray = field(init=False)
-    y_test: np.ndarray = field(init=False)
-    label_encoder: LabelEncoder = field(init=False)
-
-    # Private data loading fields
-    _class_mapping: Dict = field(init=False)
-    _train_ids: List = field(init=False)
-    _val_ids: List = field(init=False)
-
-    def __post_init__(self):
-        """Initialize default feature columns and process data"""
-        # Process the data and populate the final attributes
-        self.target_classes = self.target_classes or list(CLASSES.keys())
-        self._process_data()
-
-    def _process_data(self):
-        """Main processing pipeline - loads data and creates final arrays"""
-        self._load_base_data()
-        train_df, test_df = self._prepare_dataframes()
-        train_df = self._apply_balanced_sampling(train_df)
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        train_df = self.pixel_data.filter(pl.col.sample_id.is_in(self._train_ids))
+        test_df = self.pixel_data.filter(pl.col.sample_id.is_in(self._val_ids))
 
         # Train
         self.X_train = train_df[self.bands].to_numpy(writable=True)
-        self.y_train = train_df["labels_encoded"].to_numpy(writable=True)
+        self.y_train = train_df["label_encoded"].to_numpy(writable=True)
         self.group_train = train_df["cluster_id_encoded"].to_numpy(writable=True)
         # Test
         self.X_test = test_df[self.bands].to_numpy(writable=True)
-        self.y_test = test_df["labels_encoded"].to_numpy(writable=True)
+        self.y_test = test_df["label_encoded"].to_numpy(writable=True)
         self.group_test = test_df["cluster_id_encoded"].to_numpy(writable=True)
-
-        # Create label encoder
-        le = LabelEncoder()
-        le.fit(signal_data_with_cluster["label"])
-        self.label_encoder = le
-
-        # Split into train and test sets
-        train_data_pl = signal_data_with_cluster.filter(
-            pl.col.sample_id.is_in(self._train_ids)
-        )
-        test_data_pl = signal_data_with_cluster.filter(
-            pl.col.sample_id.is_in(self._val_ids)
-        )
-        self.train_data_pl = train_data_pl
-
-        # Prepare final dataframes with encoded labels
-        train_df = train_data_pl.with_columns(
-            pl.Series("labels_encoded", le.transform(train_data_pl["label"].to_list())),
-        )
-
-        test_df = test_data_pl.with_columns(
-            pl.Series("labels_encoded", le.transform(test_data_pl["label"].to_list())),
-        )
-
-        return train_df, test_df
