@@ -7,100 +7,109 @@ import polars as pl
 from sklearn.preprocessing import LabelEncoder
 import numpy as np
 
-from disfor.datasets import DATA_GETTER
+from disfor.data_fetcher import DATA_GETTER
+from disfor.const import CLASSES
 
+class GenericDataset():
+    def __init__(
+        self,
+        # 
+        data_folder: str | None = None,
+        # Class selection
+        target_classes: List[
+            Literal[
+                100,
+                110,
+                120,
+                121,
+                122,
+                123,
+                200,
+                210,
+                211,
+                212,
+                213,
+                220,
+                221,
+                222,
+                230,
+                231,
+                232,
+                240,
+                241,
+                242,
+                243,
+                244,
+                245,
+            ]
+        ] | None = None,
+        class_mapping_overrides: Dict[int, int] | None = None,
 
-@dataclass
-class ForestDisturbanceData:
-    """Combined configuration and data preparation class
+        # Filtering parameters
+        confidence: List[Literal["high", "medium"]] | None = None,
+        # Cloud masking parameters
+        valid_scl_values: List[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]] | None = None,
+        chip_size: Literal[32, 16, 8, 4] = 32,
+        min_clear_percentage_chip: int | None = None,
+        months: List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] | None = None,
+        max_days_since_event: int | dict | None = None,
+        sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
 
-    Args:
-        data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet
-        target_classes: Which classes should be included
-        class_mapping_overrides: Map classes to other classes for example {221: 211, 222: 211} would map both of the salvage classes to clear cut.
-        confidence: Logged confidence of label interpretation.
-        valid_scl_values: List of valid SCL values. Used to filter out cloudy or otherwise unusable observations
-        months: List of months to sample acquisitions from. January is 1, December is 12.
-        max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
-            For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
-            with {211: 90}
-        sample_datasets: Data from which sampling campaign should be included. Includes data from all by default (None)
-        max_samples_per_event: Maximum number of acquisitions to include per event. Can be used to reduce number of samples
-            drawn from segments with long durations. For example to reduce the number of healthy acquistions
-        random_seed: Random seed used for reproducible subsampling operations
-        use_balanced_sampling: Flag if balanced sampling should be used. Balanced sampling will either upsample or downsample classes
-            to achieve a balanced class distribution
-        target_majority_samples: How many samples the majority class should have after balancing
-        omit_border: Omit samples which have "border" in the comment. These are usually samples where the sample is a mixed pixel
-        omit_low_tcd: Omit samples which have "TCD" in the comment. These are usually samples where the forest has a low tree cover density (for example olive plantations)
-        bands: Spectral bands to include
-        remove_outliers: Flag if outliers should be removed. This is used to remove clouds or other data artifacts
-            which were not masked through the SCL values.
-        outlier_method: Statistical method used to determine outliers
-        outlier_threshold: Which threshold to apply, acquisitions greater than that threshold will be removed
-        outlier_columns: Which columns (bands) to search for outliers. If an outlier is detected in any of the bands
-            it will be removed. Default is all bands which are defined in the parameter `bands`
-    """
+        # Sampling parameters
+        max_samples_per_event: int | None = None,
+        random_seed: int | None = None,
 
-    # Data path
-    data_folder: str | None = None
+        # Balanced sampling parameters
+        use_balanced_sampling: bool = False,
+        target_majority_samples: int | None = None,
 
-    # Class selection
-    target_classes: List[
-        Literal[
-            100,
-            110,
-            120,
-            121,
-            122,
-            123,
-            200,
-            210,
-            211,
-            212,
-            213,
-            220,
-            221,
-            222,
-            230,
-            231,
-            232,
-            240,
-            241,
-            242,
-            244,
-            245,
-            246,
-        ]
-    ]
-    class_mapping_overrides: Dict[int, int] = field(default_factory=lambda: {})
+        # Quality filters
+        omit_low_tcd: bool = True,
+        omit_border: bool = True,
 
-    # Filtering parameters
-    confidence: List[Literal["high", "medium"]] | None = None
-    valid_scl_values: List[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]] = field(
-        default_factory=lambda: [4, 5, 6]
-    )
-    months: List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] = field(
-        default_factory=lambda: list(range(1, 13))
-    )
-    max_days_since_event: int | dict | None = (None,)
-    sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None
+        # Feature selection
+        bands: List[
+                Literal[
+                    "B02",
+                    "B03",
+                    "B04",
+                    "B05",
+                    "B06",
+                    "B07",
+                    "B08",
+                    "B8A",
+                    "B11",
+                    "B12",
+                    "SCL",
+                ]
+            ]
+            | None = None,
 
-    # Sampling parameters
-    max_samples_per_event: Optional[int] = None
-    random_seed: Optional[int] = None
-
-    # Balanced sampling parameters
-    use_balanced_sampling: bool = False
-    target_majority_samples: Optional[int] = None
-
-    # Quality filters
-    omit_low_tcd: bool = True
-    omit_border: bool = True
-
-    # Feature selection
-    bands: List[str] = field(
-        default_factory=lambda: [
+        # Outlier removal parameters
+        remove_outliers: bool = False,
+        outlier_method: Literal["iqr", "zscore", "modified_zscore"] = "iqr",
+        outlier_threshold: float = 1.5,
+        outlier_columns: List[
+                Literal[
+                    "B02",
+                    "B03",
+                    "B04",
+                    "B05",
+                    "B06",
+                    "B07",
+                    "B08",
+                    "B8A",
+                    "B11",
+                    "B12",
+                    "SCL",
+                ]
+            ]
+            | None = None,
+    ):
+        self.random_seed = random_seed
+        self.data_folder = data_folder
+        self._load_base_data()
+        all_bands = [
             "B02",
             "B03",
             "B04",
@@ -111,62 +120,126 @@ class ForestDisturbanceData:
             "B8A",
             "B11",
             "B12",
+            "SCL",
         ]
-    )
+        self.bands = bands or all_bands[:-1]
+        self.band_idxs = [all_bands.index(band) for band in self.bands]
+        self.target_classes = target_classes or list(CLASSES.keys())
+        self.valid_scl_values = valid_scl_values or [2,4,5,6]
+        self.outlier_method = outlier_method
+        self.outlier_threshold = outlier_threshold
+        self.outlier_columns = outlier_columns
+        self.class_mapping_overrides = class_mapping_overrides or {}
+        self.chip_size = chip_size
 
-    # Outlier removal parameters
-    remove_outliers: bool = False
-    outlier_method: Literal["iqr", "zscore", "modified_zscore"] = "iqr"
-    outlier_threshold: float = 1.5
-    outlier_columns: Optional[
-        List[
-            Literal[
-                "B02",
-                "B03",
-                "B04",
-                "B05",
-                "B06",
-                "B07",
-                "B08",
-                "B8A",
-                "B11",
-                "B12",
-            ]
-        ]
-    ] = None
 
-    # Private fields that will be populated after processing
-    X_train: np.ndarray = field(init=False)
-    y_train: np.ndarray = field(init=False)
-    X_test: np.ndarray = field(init=False)
-    y_test: np.ndarray = field(init=False)
-    label_encoder: LabelEncoder = field(init=False)
+        # Filters for samples.parquet
+        samples_filters = [pl.lit(True)]
+        # TODO: sample_ids should be handled in the implementing classes
+        if confidence is not None:
+            samples_filters.append(pl.col.confidence.is_in(confidence))
+        if sample_datasets is not None:
+            samples_filters.append(pl.col.dataset.is_in(sample_datasets))
+        if omit_low_tcd:
+            samples_filters.append(~pl.col.comment.str.contains("TCD"))
+        if omit_border:
+            samples_filters.append(~pl.col.comment.str.contains("border"))
 
-    # Private data loading fields
-    _class_mapping: Dict = field(init=False)
-    _train_ids: List = field(init=False)
-    _val_ids: List = field(init=False)
+        # Filters for labels.parquet
+        labels_filters = [pl.lit(True)]
+        if target_classes is not None:
+            labels_filters.append(pl.col("label").is_in(self.target_classes))
 
-    def __post_init__(self):
-        """Initialize default feature columns and process data"""
-        # Process the data and populate the final attributes
-        self._process_data()
+        # Filters for pixel_data.parquet
+        pixel_data_filters = [pl.lit(True)]
+        if months is not None:
+            pixel_data_filters.append(pl.col("timestamps").dt.month().is_in(months))
+        if self.valid_scl_values is not None:
+            pixel_data_filters.append(pl.col.SCL.is_in(self.valid_scl_values))
+        if min_clear_percentage_chip is not None:
+            pixel_data_filters.append(pl.col(f"percent_clear_{chip_size}x{chip_size}")>=min_clear_percentage_chip)
+        match max_days_since_event:
+            case dict():
+                max_duration_filters = []
+                for label, days in max_days_since_event.items():
+                    if days is None:
+                        continue
+                    max_duration_filters.append(
+                        ((pl.col("timestamps") - pl.col("start")) > pl.duration(days=days))
+                        & (pl.col.label == label)
+                    )
+                pixel_data_filters.append(~pl.any_horizontal(max_duration_filters))
+            case int():
+                pixel_data_filters.append(
+                    ((pl.col("timestamps") - pl.col("start"))
+                    > pl.duration(days=max_days_since_event))
+                )
 
-    def _process_data(self):
-        """Main processing pipeline - loads data and creates final arrays"""
-        self._load_base_data()
-        train_df, test_df = self._prepare_dataframes()
-        train_df = self._apply_balanced_sampling(train_df)
+        # Load and filter samples data
+        samples = (
+            pl.read_parquet(
+                self.base_data_paths["samples.parquet"],
+                columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
+                use_pyarrow=True,
+            )
+            .filter(samples_filters)
+        )
 
-        # Train
-        self.X_train = train_df[self.bands].to_numpy(writable=True)
-        self.y_train = train_df["labels_encoded"].to_numpy(writable=True)
-        self.group_train = train_df["cluster_id_encoded"].to_numpy(writable=True)
-        # Test
-        self.X_test = test_df[self.bands].to_numpy(writable=True)
-        self.y_test = test_df["labels_encoded"].to_numpy(writable=True)
-        self.group_test = test_df["cluster_id_encoded"].to_numpy(writable=True)
+        labels = (
+            pl.read_parquet(
+                self.base_data_paths["labels.parquet"],
+                columns=["sample_id", "label", "start"],
+            )
+            .join(samples, on="sample_id", how="inner")
+            .filter(
+                labels_filters
+            )
+        )
 
+        # Load and filter pixel data
+        pixel_data = (
+            pl.read_parquet(
+                self.base_data_paths["pixel_data.parquet"],
+                columns=set(["sample_id", "SCL", "timestamps", "label", f"percent_clear_{chip_size}x{chip_size}"]+self.bands)
+            )
+            .join(labels, on=["sample_id", "label"], how="inner")
+            .filter(
+                pixel_data_filters
+            )
+            .sort("sample_id")
+            .with_columns(
+                pl.col.label.replace_strict(
+                    self.class_mapping_overrides,
+                    return_dtype=pl.UInt16,
+                    default=pl.col.label,
+                ),
+                # TODO: fix this!
+                pl.col("cluster_id").rank("dense").cast(pl.Int64).name.suffix("_encoded")
+            )
+        )            
+
+        # Outlier removal using statistical measures
+        if remove_outliers and len(pixel_data) > 0:
+            pixel_data = self._remove_outliers(pixel_data)
+
+        # Apply sampling sub-sampling per event
+        if max_samples_per_event is not None and len(pixel_data) > 0:
+            if random_seed is not None:
+                pl.set_random_seed(random_seed)
+            if max_samples_per_event > 0:
+                pixel_data = pixel_data.filter(
+                    pl.int_range(pl.len()).over(["sample_id", "label"])
+                    < max_samples_per_event
+                )
+
+        if use_balanced_sampling and len(pixel_data) > 0:
+            pixel_data = self._apply_balanced_sampling(
+                pixel_data, target_majority_samples
+            )
+        
+        self.pixel_data = pixel_data
+        
+        
     def _load_base_data(self):
         """Load base data files"""
         required_data = [
@@ -196,85 +269,138 @@ class ForestDisturbanceData:
         with open(self.base_data_paths["val_ids.json"], "r") as f:
             self._val_ids = json.load(f)
 
-    def _prepare_dataframes(self):
-        """Load and prepare dataframes according to configuration"""
-        max_duration_filters = [pl.lit(False)]
-        match self.max_days_since_event:
-            case dict():
-                for label, days in self.max_days_since_event.items():
-                    if days is None:
-                        continue
-                    max_duration_filters.append(
-                        (pl.col.duration_since_last_flag > pl.duration(days=days))
-                        & (pl.col.label == label)
-                    )
-            case int():
-                max_duration_filters.append(
-                    pl.col.duration_since_last_flag
-                    > pl.duration(days=self.max_days_since_event)
+    def _apply_balanced_sampling(self, df: pl.DataFrame, target_majority_samples: int | None =None) -> pl.DataFrame:
+        """Apply balanced sampling by downsampling the majority class"""
+        counts = df["label"].value_counts(sort=True)[0]
+
+        # return, if there's only one (or no) classes
+        if len(counts) < 2:
+            return df
+
+        # Find majority class
+        max_count = counts["count"][0]
+        majority_class = counts["label"][0]
+
+        # Determine target size for majority class,
+        # If no target is set, the second largest class*2 is the maximum, if lower than 500
+        if target_majority_samples is None:
+            second_largest = counts["count"][1]
+            target_majority_samples = min(max_count, max(second_largest * 2, 500))
+
+        # Set random seed if specified
+        if self.random_seed is not None:
+            pl.set_random_seed(self.random_seed)
+
+        # Split and downsample
+        majority_mask = pl.col("label") == majority_class
+        majority_samples = df.filter(majority_mask).sample(
+            n=min(target_majority_samples, max_count)
+        )
+        minority_samples = df.filter(~majority_mask)
+
+        return pl.concat([minority_samples, majority_samples])
+
+
+    def _remove_outliers(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Calculate outlier mask using the configured method"""
+        outlier_cols = self.outlier_columns if self.outlier_columns is not None else self.bands
+
+        mask = [pl.lit(False)]
+        
+        if self.outlier_method == "iqr":
+            for col in outlier_cols:
+                q1 = pl.col(col).quantile(0.25).over("sample_id", "label")
+                q3 = pl.col(col).quantile(0.75).over("sample_id", "label")
+                iqr = q3 - q1
+                lower_bound = q1 - self.outlier_threshold * iqr
+                upper_bound = q3 + self.outlier_threshold * iqr
+                mask.append(
+                    (pl.col(col) < lower_bound) | (pl.col(col) > upper_bound)
                 )
+        
+        elif self.outlier_method == "zscore":
+            for col in outlier_cols:
+                mean = pl.col(col).mean().over("sample_id", "label")
+                std = pl.col(col).std().over("sample_id", "label")
+                z_score = ((pl.col(col) - mean) / std).abs()
+                mask.append(z_score > self.outlier_threshold)
+        
+        elif self.outlier_method == "modified_zscore":
+            for col in outlier_cols:
+                median_val = pl.col(col).median().over("sample_id", "label")
+                mad = ((pl.col(col) - pl.col(col).median()).abs()).median().over("sample_id", "label")
+                modified_z = 0.6745 * (pl.col(col) - median_val).abs() / mad
+                mask.append(modified_z > self.outlier_threshold)
+        
+        else:
+            raise ValueError(f"Unknown outlier method: {self.outlier_method}")
+        
+        return df.filter(~pl.any_horizontal(mask)) 
 
-        labels = pl.read_parquet(
-            self.base_data_paths["labels.parquet"],
-            columns=["sample_id", "label", "start"],
-        )
 
-        # Load and filter pixel data
-        signal_data = (
-            pl.read_parquet(self.base_data_paths["pixel_data.parquet"])
-            .join(labels, on=["sample_id", "label"], how="inner")
-            .with_columns(
-                pl.col.label.replace_strict(
-                    self.class_mapping_overrides,
-                    return_dtype=pl.UInt16,
-                    default=pl.col.label,
-                ),
-                duration_since_last_flag=(pl.col("timestamps") - pl.col("start")),
-            )
-            .filter(
-                pl.col("label").is_in(self.target_classes),
-                pl.col("timestamps").dt.month().is_in(self.months),
-                pl.col.SCL.is_in(self.valid_scl_values),
-                ~pl.any_horizontal(max_duration_filters),
-            )
-        )
+@dataclass
+class ForestDisturbanceData(GenericDataset):
+    """Combined configuration and data preparation class
 
-        group_filters = [pl.lit(True)]
+    Args:
+        data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet
+        target_classes: Which classes should be included
+        class_mapping_overrides: Map classes to other classes for example {221: 211, 222: 211} would map both of the salvage classes to clear cut.
+        confidence: Logged confidence of label interpretation.
+        valid_scl_values: List of valid SCL values. Used to filter out cloudy or otherwise unusable observations
+        months: List of months to sample acquisitions from. January is 1, December is 12.
+        max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
+            For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
+            with {211: 90}
+        sample_datasets: Data from which sampling campaign should be included. Includes data from all by default (None)
+        max_samples_per_event: Maximum number of acquisitions to include per event. Can be used to reduce number of samples
+            drawn from segments with long durations. For example to reduce the number of healthy acquistions
+        random_seed: Random seed used for reproducible subsampling operations
+        use_balanced_sampling: Flag if balanced sampling should be used. Balanced sampling will either upsample or downsample classes
+            to achieve a balanced class distribution
+        target_majority_samples: How many samples the majority class should have after balancing
+        omit_border: Omit samples which have "border" in the comment. These are usually samples where the sample is a mixed pixel
+        omit_low_tcd: Omit samples which have "TCD" in the comment. These are usually samples where the forest has a low tree cover density (for example olive plantations)
+        bands: Spectral bands to include
+        remove_outliers: Flag if outliers should be removed. This is used to remove clouds or other data artifacts
+            which were not masked through the SCL values.
+        outlier_method: Statistical method used to determine outliers
+        outlier_threshold: Which threshold to apply, acquisitions greater than that threshold will be removed
+        outlier_columns: Which columns (bands) to search for outliers. If an outlier is detected in any of the bands
+            it will be removed. Default is all bands which are defined in the parameter `bands`
+    """
+    # Private fields that will be populated after processing
+    X_train: np.ndarray = field(init=False)
+    y_train: np.ndarray = field(init=False)
+    X_test: np.ndarray = field(init=False)
+    y_test: np.ndarray = field(init=False)
+    label_encoder: LabelEncoder = field(init=False)
 
-        # Add quality filters
-        if self.confidence is not None:
-            group_filters.append(pl.col.confidence.is_in(self.confidence))
-        if self.sample_datasets is not None:
-            group_filters.append(pl.col.dataset.is_in(self.sample_datasets))
-        if self.omit_low_tcd:
-            group_filters.append(~pl.col.comment.str.contains("TCD"))
-        if self.omit_border:
-            group_filters.append(~pl.col.comment.str.contains("border"))
+    # Private data loading fields
+    _class_mapping: Dict = field(init=False)
+    _train_ids: List = field(init=False)
+    _val_ids: List = field(init=False)
 
-        # Load and filter groups data
-        groups = (
-            pl.read_parquet(
-                self.base_data_paths["samples.parquet"],
-                columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
-                use_pyarrow=True,
-            )
-            .with_columns(
-                cluster_id_int=pl.col("cluster_id").rle_id(),
-            )
-            .filter(group_filters)
-        )
+    def __post_init__(self):
+        """Initialize default feature columns and process data"""
+        # Process the data and populate the final attributes
+        self.target_classes = self.target_classes or list(CLASSES.keys())
+        self._process_data()
 
-        # Join signal data with groups
-        signal_data_with_cluster = signal_data.join(
-            groups, left_on="sample_id", right_on="sample_id", how="inner"
-        ).with_columns(
-            pl.col("cluster_id").rank("dense").cast(pl.Int64).name.suffix("_encoded")
-        )
+    def _process_data(self):
+        """Main processing pipeline - loads data and creates final arrays"""
+        self._load_base_data()
+        train_df, test_df = self._prepare_dataframes()
+        train_df = self._apply_balanced_sampling(train_df)
 
-        signal_data_with_cluster, _ = self._remove_outliers(signal_data_with_cluster)
-        signal_data_with_cluster = signal_data_with_cluster.sort(
-            ["sample_id", "timestamps"]
-        )
+        # Train
+        self.X_train = train_df[self.bands].to_numpy(writable=True)
+        self.y_train = train_df["labels_encoded"].to_numpy(writable=True)
+        self.group_train = train_df["cluster_id_encoded"].to_numpy(writable=True)
+        # Test
+        self.X_test = test_df[self.bands].to_numpy(writable=True)
+        self.y_test = test_df["labels_encoded"].to_numpy(writable=True)
+        self.group_test = test_df["cluster_id_encoded"].to_numpy(writable=True)
 
         # Create label encoder
         le = LabelEncoder()
@@ -290,16 +416,6 @@ class ForestDisturbanceData:
         )
         self.train_data_pl = train_data_pl
 
-        # Apply sampling if configured
-        if self.max_samples_per_event is not None:
-            if self.random_seed is not None:
-                pl.set_random_seed(self.random_seed)
-
-            train_data_pl = train_data_pl.filter(
-                pl.int_range(pl.len()).over(["sample_id", "label"])
-                < self.max_samples_per_event
-            )
-
         # Prepare final dataframes with encoded labels
         train_df = train_data_pl.with_columns(
             pl.Series("labels_encoded", le.transform(train_data_pl["label"].to_list())),
@@ -310,224 +426,3 @@ class ForestDisturbanceData:
         )
 
         return train_df, test_df
-
-    def _apply_balanced_sampling(self, train_df: pl.DataFrame):
-        """Apply balanced sampling by downsampling the majority class"""
-        if not self.use_balanced_sampling:
-            return train_df
-
-        # print("Applying balanced sampling by downsampling majority class...")
-
-        # Get class distribution
-        class_counts = (
-            train_df.group_by("labels_encoded")
-            .agg(pl.count().alias("count"))
-            .sort("labels_encoded")
-        )
-
-        # Find majority class and determine target size
-        counts = [row[1] for row in class_counts.iter_rows()]
-        class_ids = [row[0] for row in class_counts.iter_rows()]
-
-        max_count = max(counts)
-        majority_class_id = class_ids[counts.index(max_count)]
-
-        # Determine target size for majority class
-        if self.target_majority_samples is not None:
-            target_size = self.target_majority_samples
-        else:
-            # Use 2x the second largest class, or 10k if that's smaller
-            other_counts = [c for c in counts if c != max_count]
-            if other_counts:
-                second_largest = max(other_counts)
-                target_size = min(max_count, max(second_largest * 2, 500))
-            else:
-                target_size = min(max_count, 500)
-
-        # print(f"Downsampling majority class (ID {majority_class_id}) from {max_count:,} to {target_size:,}")
-
-        # Set random seed
-        if self.random_seed is not None:
-            pl.set_random_seed(self.random_seed)
-
-        # Downsample majority class
-        majority_samples = train_df.filter(
-            pl.col("labels_encoded") == majority_class_id
-        )
-        minority_samples = train_df.filter(
-            pl.col("labels_encoded") != majority_class_id
-        )
-
-        # Sample from majority class
-        downsampled_majority = majority_samples.sample(
-            n=min(target_size, len(majority_samples))
-        )
-
-        # Combine with minority classes
-        balanced_df = pl.concat([minority_samples, downsampled_majority])
-
-        # Print new class distribution
-        new_class_counts = (
-            balanced_df.group_by("labels_encoded")
-            .agg(pl.count().alias("count"))
-            .sort("labels_encoded")
-        )
-        total_samples = 0
-        for row in new_class_counts.iter_rows():
-            class_id, count = row
-            total_samples += count
-
-        return balanced_df
-
-    def _remove_outliers(self, df: pl.DataFrame):
-        """Remove statistical outliers from specified feature columns per target class"""
-        if not self.remove_outliers:
-            return df, {"outliers_removed": 0, "total_samples": len(df)}
-
-        # print(f"Removing outliers using {self.outlier_method} method per target class...")
-
-        # Determine columns to check for outliers
-        outlier_cols = (
-            self.outlier_columns if self.outlier_columns is not None else self.bands
-        )
-
-        original_len = len(df)
-        cleaned_dfs = []
-        all_removal_stats = {}
-        total_outliers_removed = 0
-
-        # Process each target class separately
-        for label in df["label"].unique().to_list():
-            class_df = df.filter(pl.col("label") == label)
-            class_original_len = len(class_df)
-
-            if class_original_len == 0:
-                continue
-
-            outlier_mask = pl.lit(False)
-            class_outlier_stats = {}
-
-            if self.outlier_method == "iqr":
-                # IQR method: Q1 - threshold * IQR, Q3 + threshold * IQR
-                for col in outlier_cols:
-                    q1 = class_df[col].quantile(0.25)
-                    q3 = class_df[col].quantile(0.75)
-                    iqr = q3 - q1
-                    lower_bound = q1 - self.outlier_threshold * iqr
-                    upper_bound = q3 + self.outlier_threshold * iqr
-
-                    col_outliers = (pl.col(col) < lower_bound) | (
-                        pl.col(col) > upper_bound
-                    )
-                    outlier_mask = outlier_mask | col_outliers
-
-                    class_outlier_stats[col] = {
-                        "q1": q1,
-                        "q3": q3,
-                        "iqr": iqr,
-                        "lower_bound": lower_bound,
-                        "upper_bound": upper_bound,
-                    }
-
-            elif self.outlier_method == "zscore":
-                # Z-score method: |z| > threshold
-                for col in outlier_cols:
-                    mean_val = class_df[col].mean()
-                    std_val = class_df[col].std()
-
-                    if std_val > 0:  # Avoid division by zero
-                        z_score = ((pl.col(col) - mean_val) / std_val).abs()
-                        col_outliers = z_score > self.outlier_threshold
-                        outlier_mask = outlier_mask | col_outliers
-
-                        class_outlier_stats[col] = {
-                            "mean": mean_val,
-                            "std": std_val,
-                            "threshold": self.outlier_threshold,
-                        }
-
-            elif self.outlier_method == "modified_zscore":
-                # Modified Z-score using median absolute deviation
-                for col in outlier_cols:
-                    median_val = class_df[col].median()
-                    mad = (class_df[col] - median_val).abs().median()
-
-                    if mad > 0:  # Avoid division by zero
-                        modified_z = 0.6745 * (pl.col(col) - median_val).abs() / mad
-                        col_outliers = modified_z > self.outlier_threshold
-                        outlier_mask = outlier_mask | col_outliers
-
-                        class_outlier_stats[col] = {
-                            "median": median_val,
-                            "mad": mad,
-                            "threshold": self.outlier_threshold,
-                        }
-
-            else:
-                raise ValueError(f"Unknown outlier method: {self.outlier_method}")
-
-            # Remove outliers for this class
-            class_cleaned_df = class_df.filter(~outlier_mask)
-            class_outliers_removed = class_original_len - len(class_cleaned_df)
-            total_outliers_removed += class_outliers_removed
-
-            cleaned_dfs.append(class_cleaned_df)
-
-            # Store stats for this class
-            all_removal_stats[label] = {
-                "outliers_removed": class_outliers_removed,
-                "total_samples": class_original_len,
-                "samples_remaining": len(class_cleaned_df),
-                "removal_percentage": (class_outliers_removed / class_original_len)
-                * 100
-                if class_original_len > 0
-                else 0,
-                "column_stats": class_outlier_stats,
-            }
-
-            # if class_outliers_removed > 0:
-            # print(f"  {label}: Removed {class_outliers_removed:,} outliers ({all_removal_stats[label]['removal_percentage']:.2f}%) from {class_original_len:,} samples")
-
-        # Combine all cleaned class dataframes
-        cleaned_df = (
-            pl.concat(cleaned_dfs) if cleaned_dfs else df.filter(pl.lit(False))
-        )  # Empty dataframe with same schema
-
-        removal_stats = {
-            "outliers_removed": total_outliers_removed,
-            "total_samples": original_len,
-            "samples_remaining": len(cleaned_df),
-            "removal_percentage": (total_outliers_removed / original_len) * 100
-            if original_len > 0
-            else 0,
-            "method": self.outlier_method,
-            "threshold": self.outlier_threshold,
-            "columns_checked": outlier_cols,
-            "per_class_stats": all_removal_stats,
-        }
-
-        # print(f"Total outliers removed: {total_outliers_removed:,} ({removal_stats['removal_percentage']:.2f}%) from {original_len:,} samples")
-        # print(f"Total remaining samples: {len(cleaned_df):,}")
-
-        return cleaned_df, removal_stats
-
-    def to_dict(self):
-        config_dict = asdict(self)
-        # Remove the processed data fields from hashing
-        config_dict.pop("X_train", None)
-        config_dict.pop("y_train", None)
-        config_dict.pop("X_test", None)
-        config_dict.pop("y_test", None)
-        config_dict.pop("label_encoder", None)
-        config_dict.pop("_class_mapping", None)
-        config_dict.pop("_train_ids", None)
-        config_dict.pop("_val_ids", None)
-        return config_dict
-
-    def get_config_hash(self) -> str:
-        """Generate a hash of the configuration for unique identification"""
-        # Only hash the configuration parameters, not the processed data
-        config_dict = self.to_dict()
-
-        config_str = json.dumps(config_dict, sort_keys=True)
-        return hashlib.md5(config_str.encode()).hexdigest()[:8]

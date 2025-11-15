@@ -1,8 +1,12 @@
 from pathlib import Path
-from typing import List, Tuple
+import json
+from typing import List, Dict, Tuple, Optional, Literal
 
 import numpy as np
 import polars as pl
+
+from disfor.data_fetcher import DATA_GETTER
+from disfor.const import CLASSES
 
 
 def generate_folds(n_folds: int, data_folder="data"):
@@ -43,7 +47,6 @@ def generate_folds(n_folds: int, data_folder="data"):
         folds[i]["train_ids"] = set(sample_ids[train_index].tolist())
         folds[i]["val_ids"] = set(sample_ids[test_index].tolist())
     return folds
-
 
 class HierarchicalLabelEncoder:
     """

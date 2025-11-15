@@ -149,7 +149,7 @@ class ExtractAndCleanup:
                 if part_path.exists():
                     part_path.unlink()
 
-        return str(extract_path)
+        return str(extract_path / "tiffs")
 
 
 def fetch_s2_chips():
@@ -171,4 +171,4 @@ def fetch_s2_chips():
         downloader=MultiPartDownloader(parts=DISFOR_PARTS),
         processor=processor,
     )
-    return fname
+    return Path(fname)
