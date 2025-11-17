@@ -1,6 +1,5 @@
-import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
-from disfor.utils import GenericDataset
+from disfor.data import GenericDataset
 
 # Define valid values as strategies
 TARGET_CLASSES = [
@@ -50,11 +49,13 @@ MONTHS = list(range(1, 13))
     ),
     valid_scl_values=st.one_of(
         st.none(),
-        st.lists(st.sampled_from(list(range(0, 12))), min_size=1, max_size=12, unique=True),
+        st.lists(
+            st.sampled_from(list(range(0, 12))), min_size=1, max_size=12, unique=True
+        ),
     ),
     max_samples_per_event=st.one_of(
         st.none(),
-        st.integers(0),
+        st.integers(0, max_value=1000000),
     ),
     use_balanced_sampling=st.booleans(),
     remove_outliers=st.booleans(),
@@ -80,6 +81,7 @@ MONTHS = list(range(1, 13))
     ),
     omit_border=st.booleans(),
     omit_low_tcd=st.booleans(),
+    label_strategy=st.sampled_from(["LabelEncoder", "LabelBinarizer", "Hierarchical"]),
 )
 @settings(
     max_examples=50,  # Adjust based on your test runtime needs
@@ -104,13 +106,14 @@ def test_tiff_dataset_initialization(
     months,
     omit_border,
     omit_low_tcd,
+    label_strategy,
 ):
     """
     Integration test that verifies TiffDataset can be initialized with
     various valid parameter combinations and perform basic operations.
     """
     # Initialize dataset with generated parameters
-    dataset = GenericDataset(
+    _ = GenericDataset(
         target_classes=target_classes,
         chip_size=chip_size,
         confidence=confidence,
@@ -128,4 +131,5 @@ def test_tiff_dataset_initialization(
         outlier_method=outlier_method,
         outlier_threshold=outlier_threshold,
         target_majority_samples=target_majority_samples,
+        label_strategy=label_strategy,
     )

@@ -3,6 +3,7 @@
 ::: disfor.data
     options:
       members:
+        - GenericDataset
         - ForestDisturbanceData
       show_root_heading: true
       show_source: true
@@ -10,8 +11,8 @@
 ::: disfor.torch
     options:
       members:
-        - TiffDataset
-        - TiffDataModule
+        - DisturbanceDataset
+        - DisturbanceDataModule
       show_root_heading: true
       show_source: true
 
@@ -19,8 +20,13 @@
     options:
       members:
         - generate_folds
-        - extract_multipart
-        - CombinedReader
         - HierarchicalLabelEncoder
+      show_root_heading: true
+      show_source: true
+
+::: disfor.data_fetcher
+    options:
+      members:
+        - DATA_GETTER
       show_root_heading: true
       show_source: true

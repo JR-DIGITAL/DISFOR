@@ -1,64 +1,45 @@
 from pathlib import Path
-from typing import List, Literal, TypedDict, Unpack
+from typing import List, Unpack
 import json
 
 import tifffile
 import torch
 from torch.utils.data import Dataset, DataLoader
-import polars as pl
 import lightning as L
 import numpy as np
 import matplotlib.pyplot as plt
+import polars as pl
 
 from disfor.const import CLASSES
-from disfor.data import GenericDataset
+from disfor.data import GenericDataset, DatasetParams
 
-class TiffDataset(GenericDataset, Dataset):
-    """PyTorch Dataset that loads pre-processed binary data."""
+
+class DisturbanceDataset(GenericDataset, Dataset):
+    """PyTorch Dataset that loads image chips from stored GeoTIFFs."""
 
     def __init__(
-        self,
-        # TODO implement sample id subset
-        sample_ids: List[int] | None = None,
-        *args,
-        **kwargs
+        self, sample_ids: List[int] | None = None, **kwargs: Unpack[DatasetParams]
     ):
         """
         Args:
-            data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet
-                if None, the data will by dynamically downloaded from Huggingface
             sample_ids: List of sample_ids that should be included. Used for example to subset train and test splits
-            target_classes: Which classes should be included
-            chip_size: Size of the image chip. Maximum of 32x32
-            confidence: Logged confidence of label interpretation.
-            sample_datasets: Data from which sampling campaign should be included. Includes data from all by default (None)
-            min_clear_percentage: Minimum percent of pixels in the chip that has to be clear (SCL in 4,5,6) to be taken.
-            max_days_since_event: Either an integer specifying the maximum duration in days to the start label. This can also be set separately for each target_class.
-                For example if target_classes is [110, 211] (Mature Forest, Clear Cut) we can specify a maximum number of days only for Clear Cut by passing a dictionary
-                with {211: 90}
-            bands: Spectral bands to include
-            months: List of months to sample acquisitions from. January is 1, December is 12.
-            omit_border: Omit samples which have "border" in the comment. These are usually samples where the sample is a mixed pixel
-            omit_low_tcd: Omit samples which have "TCD" in the comment. These are usually samples where the forest has a low tree cover density (for example olive plantations)
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         if self.data_folder is None:
             from disfor.data_fetcher import fetch_s2_chips
+
             self.tiff_folder = fetch_s2_chips()
         else:
             self.tiff_folder = Path(self.data_folder) / "tiffs"
         if sample_ids is not None:
             self.pixel_data = self.pixel_data.filter(pl.col.sample_id.is_in(sample_ids))
-        samples = (
-            self.pixel_data
-            .select(
-                "label",
-                path=pl.format(
-                    "{}/{}.tif",
-                    pl.col.sample_id,
-                    pl.col.timestamps.dt.strftime("%Y-%m-%d"),
-                ),
-            )
+        samples = self.pixel_data.select(
+            "label",
+            path=pl.format(
+                "{}/{}.tif",
+                pl.col.sample_id,
+                pl.col.timestamps.dt.strftime("%Y-%m-%d"),
+            ),
         )
 
         # Pre-compute paths, labels, and chip indices to avoid string ops in __getitem__
@@ -138,7 +119,7 @@ class TiffDataset(GenericDataset, Dataset):
         plt.show()
 
 
-class TiffDataModule(L.LightningDataModule):
+class DisturbanceDataModule(L.LightningDataModule):
     """
     Args:
         batch_size (int): Batch size for the dataloaders.
@@ -146,7 +127,7 @@ class TiffDataModule(L.LightningDataModule):
         persist_workers (bool): If workers should persist between epochs
         train_ids (List[int]): List of sample ids to include in training. If None, train test split from the dataset will be used
         val_ids (List[int]): List of sample ids to include in validation. If None, train test split from the dataset will be used
-        **kwargs: Passed on to TiffDataset
+        **kwargs: Passed on to DisturbanceDataset
     """
 
     def __init__(
@@ -157,7 +138,7 @@ class TiffDataModule(L.LightningDataModule):
         data_folder: str | None = None,
         train_ids: List[int] | None = None,
         val_ids: List[int] | None = None,
-        **kwargs,
+        **kwargs: Unpack[DatasetParams],
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -196,12 +177,15 @@ class TiffDataModule(L.LightningDataModule):
         Setup the datasets for training and validation.
 
         Args:
-            stage (str): Stage of the training process ('fit', 'validate',
-            etc.).
+            stage (str): Stage of the training process ('fit', 'validate').
         """
         if stage in {"fit", None}:
-            self.trn_ds = TiffDataset(sample_ids=self.train_ids, data_folder=self.data_folder, **self.kwargs)
-            self.val_ds = TiffDataset(sample_ids=self.val_ids, data_folder=self.data_folder, **self.kwargs)
+            self.trn_ds = DisturbanceDataset(
+                sample_ids=self.train_ids, data_folder=self.data_folder, **self.kwargs
+            )
+            self.val_ds = DisturbanceDataset(
+                sample_ids=self.val_ids, data_folder=self.data_folder, **self.kwargs
+            )
             self.class_weights = self.trn_ds.class_weights
 
     def train_dataloader(self):
