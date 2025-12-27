@@ -417,12 +417,14 @@ class GenericDataset:
 
                 self.encoder = HierarchicalLabelEncoder()
 
-        self.encoder.fit(self.target_classes)
+        self.encoder.fit(self.target_classes)  # ty:ignore[invalid-argument-type]
 
         if len(pixel_data) > 0:
             pixel_data = (
                 pixel_data.with_columns(
-                    label_encoded=pl.Series(self.encoder.transform(pixel_data["label"]))
+                    label_encoded=pl.Series(
+                        self.encoder.transform(pixel_data["label"].to_list())
+                    )
                 )
                 .sort("dataset", "cluster_id")
                 .with_columns(

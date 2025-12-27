@@ -3,7 +3,6 @@ from pathlib import Path
 import pystac_client
 from odc.stac import stac_load
 from odc.geo.geobox import GeoBox
-import zarr
 
 from pyproj import Transformer
 import shapely
@@ -38,10 +37,24 @@ bands_mapping = {
     "scl": "SCL",
 }
 
+desired_band_order = [
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08",
+    "B8A",
+    "B11",
+    "B12",
+    "SCL",
+]
+
 
 def get_stack(sample):
-    output_dir = "data/stragglers"
-    output_path = Path(output_dir, f"{sample.sample_id}.zarr")
+    output_dir = "../data/evoland"
+    output_path = Path(output_dir, f"{sample.id}")
 
     if output_path.exists():
         return True
@@ -82,7 +95,7 @@ def get_stack(sample):
     ].coords[0]
 
     # Create bounds in projection
-    size = 128
+    size = 32
     gsd = 10
     bounds = (
         coords[0] - (size * gsd) // 2,
@@ -106,16 +119,11 @@ def get_stack(sample):
         .rename(bands_mapping)
     )
 
-    rechunked = ds.chunk({"time": -1, "y": 128, "x": 128})
-
-    compressors = zarr.codecs.BloscCodec(
-        cname="zstd", clevel=5, shuffle=zarr.codecs.BloscShuffle.bitshuffle
-    )
-
-    encoding = {}
-    for data_var in rechunked.data_vars:
-        encoding[data_var] = {"compressors": compressors}
-
-    rechunked.to_zarr(output_path, encoding=encoding, zarr_format=3)
+    resorted = ds[desired_band_order].drop_duplicates("time")
+    for time in resorted.time:
+        time_str = time.astype("datetime64[us]").item().strftime("%Y-%m-%d")
+        out_file = output_path / f"{time_str}.tif"
+        out_file.parent.mkdir(exist_ok=True, parents=True)
+        resorted.sel(time=time).rio.to_raster(out_file, driver="COG")
 
     return True

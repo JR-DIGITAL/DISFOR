@@ -119,7 +119,8 @@ class ExtractAndCleanup:
     Extract a tarball and delete the archive file.
     """
 
-    def __init__(self, extract_dir=None):
+    def __init__(self, parts, extract_dir=None):
+        self.parts = parts
         self.extract_dir = extract_dir
 
     def __call__(self, fname, action, pooch_inst):
@@ -163,8 +164,7 @@ def fetch_s2_chips():
         Path to the extracted directory containing the chips
     """
     # Create the processor with the parts info so it can clean them up
-    processor = ExtractAndCleanup()
-    processor.parts = DISFOR_PARTS  # Add parts info for cleanup
+    processor = ExtractAndCleanup(parts=DISFOR_PARTS)
 
     fname = DATA_GETTER.fetch(
         "chips",

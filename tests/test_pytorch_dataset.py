@@ -1,10 +1,10 @@
 import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
-from disfor.torch import TiffDataset
+from disfor.torch import DisturbanceDataset
 
 
 def test_dataset_init():
-    test = TiffDataset(
+    test = DisturbanceDataset(
         data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=None,
         target_classes=[110, 211],
@@ -106,7 +106,7 @@ def test_tiff_dataset_initialization_and_basic_operations(
     various valid parameter combinations and perform basic operations.
     """
     # Initialize dataset with generated parameters
-    dataset = TiffDataset(
+    dataset = DisturbanceDataset(
         data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=None,
         target_classes=target_classes,
@@ -161,7 +161,7 @@ def test_tiff_dataset_with_max_days_dict(target_classes, max_days_values):
         target_classes[i]: max_days_values[i] for i in range(num_classes_for_dict)
     }
 
-    dataset = TiffDataset(
+    dataset = DisturbanceDataset(
         data_folder="data",
         target_classes=target_classes,
         max_days_since_event=max_days_dict,
@@ -181,7 +181,7 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
     """
     Test that dataset can be filtered by specific sample_ids.
     """
-    dataset = TiffDataset(
+    dataset = DisturbanceDataset(
         data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=sample_ids,
         chip_size=32,
@@ -196,7 +196,7 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
 @pytest.mark.parametrize("chip_size", CHIP_SIZES)
 def test_tiff_dataset_chip_sizes(chip_size):
     """Simple parametrized test for different chip sizes."""
-    dataset = TiffDataset(
+    dataset = DisturbanceDataset(
         data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         chip_size=chip_size,
         target_classes=[110, 211],

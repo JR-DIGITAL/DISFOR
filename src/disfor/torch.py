@@ -49,7 +49,7 @@ class DisturbanceDataset(GenericDataset, Dataset):
             tiff_half_size + self.chip_size // 2,
         )
         self.file_paths = [self.tiff_folder / path for path in samples["path"]]
-        self.labels = self.encoder.transform(samples["label"])
+        self.labels = self.encoder.transform(samples["label"].to_list())
         match self.label_strategy:
             case "LabelEncoder":
                 class_counts = np.unique_counts(self.labels).counts
@@ -67,10 +67,10 @@ class DisturbanceDataset(GenericDataset, Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, index):
         scale_factor = 10000
         arr = (
-            tifffile.imread(self.file_paths[idx])[
+            tifffile.imread(self.file_paths[index])[
                 self.chip_range[0] : self.chip_range[1],
                 self.chip_range[0] : self.chip_range[1],
                 self.band_idxs,
@@ -79,8 +79,8 @@ class DisturbanceDataset(GenericDataset, Dataset):
         )
         return {
             "image": torch.from_numpy(arr).permute(2, 0, 1).float(),
-            "label": torch.tensor(self.labels[idx]),
-            "path": str(self.file_paths[idx]),
+            "label": torch.tensor(self.labels[index]),
+            "path": str(self.file_paths[index]),
         }
 
     def plot_chip(self, idx: int):

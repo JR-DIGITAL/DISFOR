@@ -1,12 +1,8 @@
 from pathlib import Path
-import json
-from typing import List, Dict, Tuple, Optional, Literal
+from typing import List, Tuple
 
 import numpy as np
 import polars as pl
-
-from disfor.data_fetcher import DATA_GETTER
-from disfor.const import CLASSES
 
 
 def generate_folds(n_folds: int, data_folder="data"):
@@ -48,6 +44,7 @@ def generate_folds(n_folds: int, data_folder="data"):
         folds[i]["val_ids"] = set(sample_ids[test_index].tolist())
     return folds
 
+
 class HierarchicalLabelEncoder:
     """
     Sklearn-style encoder for hierarchical multi-class labels with multi-hot encoding.
@@ -59,9 +56,9 @@ class HierarchicalLabelEncoder:
     """
 
     def __init__(self):
-        self.level1_classes_ = None
-        self.level2_classes_ = None
-        self.level3_classes_ = None
+        self.level1_classes_ = []
+        self.level2_classes_ = []
+        self.level3_classes_ = []
         self.is_fitted_ = False
 
     def _extract_hierarchy(self, label: int) -> Tuple[int, int, int]:
