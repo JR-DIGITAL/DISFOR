@@ -3,7 +3,6 @@ from disfor.data import ForestDisturbanceData
 
 def test_init():
     _ = ForestDisturbanceData(
-        data_folder=r"data",
         target_classes=[110, 211],
         confidence=["high"],
         sample_datasets=["HRVPP", "Windthrow"],

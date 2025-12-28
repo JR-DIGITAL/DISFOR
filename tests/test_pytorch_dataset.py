@@ -5,7 +5,6 @@ from disfor.torch import DisturbanceDataset
 
 def test_dataset_init():
     test = DisturbanceDataset(
-        # data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=None,
         target_classes=[110, 211],
         chip_size=32,
@@ -107,7 +106,6 @@ def test_tiff_dataset_initialization_and_basic_operations(
     """
     # Initialize dataset with generated parameters
     dataset = DisturbanceDataset(
-        data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=None,
         target_classes=target_classes,
         chip_size=chip_size,
@@ -162,7 +160,6 @@ def test_tiff_dataset_with_max_days_dict(target_classes, max_days_values):
     }
 
     dataset = DisturbanceDataset(
-        data_folder="data",
         target_classes=target_classes,
         max_days_since_event=max_days_dict,
         chip_size=32,
@@ -182,7 +179,6 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
     Test that dataset can be filtered by specific sample_ids.
     """
     dataset = DisturbanceDataset(
-        data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=sample_ids,
         chip_size=32,
     )
@@ -197,7 +193,6 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
 def test_tiff_dataset_chip_sizes(chip_size):
     """Simple parametrized test for different chip sizes."""
     dataset = DisturbanceDataset(
-        data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         chip_size=chip_size,
         target_classes=[110, 211],
         confidence=["high"],
