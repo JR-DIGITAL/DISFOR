@@ -5,7 +5,7 @@ from disfor.torch import DisturbanceDataset
 
 def test_dataset_init():
     test = DisturbanceDataset(
-        data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
+        # data_folder=r"C:\Users\Jonas.Viehweger\Documents\Projects\2025\disturbance-agent-data\data",
         sample_ids=None,
         target_classes=[110, 211],
         chip_size=32,
@@ -71,7 +71,7 @@ MONTHS = list(range(1, 13))
         st.none(),
         st.lists(st.sampled_from(SAMPLE_DATASETS), min_size=1, max_size=3, unique=True),
     ),
-    min_clear_percentage=st.integers(min_value=0, max_value=100),
+    min_clear_percentage_chip=st.integers(min_value=0, max_value=100),
     max_days_since_event=st.one_of(st.none(), st.integers(min_value=1, max_value=365)),
     bands=st.one_of(
         st.none(),
@@ -94,7 +94,7 @@ def test_tiff_dataset_initialization_and_basic_operations(
     chip_size,
     confidence,
     sample_datasets,
-    min_clear_percentage,
+    min_clear_percentage_chip,
     max_days_since_event,
     bands,
     months,
@@ -113,7 +113,7 @@ def test_tiff_dataset_initialization_and_basic_operations(
         chip_size=chip_size,
         confidence=confidence,
         sample_datasets=sample_datasets,
-        min_clear_percentage=min_clear_percentage,
+        min_clear_percentage_chip=min_clear_percentage_chip,
         max_days_since_event=max_days_since_event,
         bands=bands,
         months=months,

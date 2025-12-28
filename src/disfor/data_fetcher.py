@@ -17,158 +17,91 @@ DATA_GETTER = pooch.create(
     # version and replace the version with this string.
     version_dev="main",
     registry={
-        "samples.parquet": "ee22c9d590ae8043562594c77ec30623f5fc060d240384d5a3455ce2f643f0c6",
-        "labels.parquet": "fdb87561e72bec626e0e2c145b84132a8f31c2be8e17770ec15bda15a074ad00",
-        "pixel_data.parquet": "58b70bd8145f1afbcc27f7a04043deffa876d8bf64ea2296b364d707b86c2d24",
-        "train_ids.json": "42bee12fe4615212b8a44a544639f30b0d9199cf24c75bbae4e794cbfb98b98f",
-        "val_ids.json": "5d2078f4081b2e8cc536f2465437c8bcde79557cf5938714448dfd42e2809942",
-        "classes.json": "0acaa13405dab6dfa6fe48422646c391d90fd6ee9bb80b7e658459ae244bf108",
-        "chips": None,
+        "samples.parquet": "dc6358f7f04fa0cf56cda6efb24ff1279399a4e30f50c808bf790f7e3b766517",
+        "labels.parquet": "9421e630f42da37737f2ed9f608f978b4c88af3ec51d72350d1b2169b3160108",
+        "pixel_data.parquet": "294f074eea4a1a5ce32ce793c9118f9cecbd0fdd5c2b665f0d5a0145de41ed64",
+        "train_ids.json": "e1aec584175ad95caf417c44feec6c808b9a45e617f5554d4495034a889d04ce",
+        "val_ids.json": "c0745e6d5bc671e3906033d1d74ccca2b6989f445db9a28552d8f39ee717800b",
+        "classes.json": "bf088fa6b91725a947352e75a5c6967052df1015ac0d2e655787fa835f0ea244",
+        "disfor-0-499.tar.zst": "fe062336c6db5106432983a24981fa3a7e7d854bc0699aeea85a7754f42e4c73",
+        "disfor-500-999.tar.zst": "c20f4110402c5eeef912d5cf1d00410927102b0423775d54ba1fbfe134c563f9",
+        "disfor-1000-1499.tar.zst": "5e33c5bddc467060f603665866a795c665a94199813248376c9b21c2d5913f27",
+        "disfor-1500-1999.tar.zst": "0d92b7a7d93e7c539fa88399d9f7b8f0b6f280e064dca8d344f3af8f03f31de3",
+        "disfor-2000-2499.tar.zst": "ac711fb765808ddddbab1f814770eab90473b4f5a3887867c3747b91fab8513c",
+        "disfor-2500-2999.tar.zst": "0a407d101d4af60fcf56a0c29be4265657515d61e77b427d0df11b7be6068e81",
+        "disfor-3000-3499.tar.zst": "51b9bfa9bc98464b241fde4626ed99516459cf9a68cc436b01a2dd73b4f4bda1",
+        "disfor-3500-3999.tar.zst": "fa1ea1168c857bf4fc567d329a02db785584316468ad3401f1494887af8d37e3",
     },
 )
 
-# Define the parts and their hashes
-DISFOR_PARTS = {
-    "disfor.tar.zst.aa": "1d96fcc95ed37bce1eb036cda62f5b2a6a67f9e87ed48bfaae20e544b0e8dadd",
-    "disfor.tar.zst.ab": "d2a6de0db578137df10620de3caed109d3a26d6f3fcce8f27ddc4a46bf604cfc",
-    "disfor.tar.zst.ac": "505aaddc6471e2ac09cbd5f6c36d0b71df2fba684823f1332521eb735d6c7f3b",
-    "disfor.tar.zst.ad": "1c131d6e6da97a8f3d82ede0e7b897d3bbc4ef1fb160aea60e29168691dbee39",
-    "disfor.tar.zst.ae": "3a74c32e694a0c76da593d899a3cdb11c72bbe06ce972ffb059bd64c874c5129",
-    "disfor.tar.zst.af": "e3e9425b9f76351df05bf53cfc67bdd21cea3b30a9683ab23c2c4475f1123d76",
-    "disfor.tar.zst.ag": "5609b5fc51a82a0814d0aad719bb3b84c6db0f605befd5e85446f42fe460fdb5",
-    "disfor.tar.zst.ah": "28b10a172c1d5f0a29602884edca6da6d0ae5390240307d0d31a6a7103065bf6",
-    "disfor.tar.zst.ai": "ffb502e8a89c2d1aa85515e7de6a5caf8eb47ecaf786647e2aac946d3db50065",
-    "disfor.tar.zst.aj": "c95d8a3f04beebb80d99595c0896f5e2f1c1865ea45e286fbe2762d3791abf62",
-}
+
+def marker_path(pooch, archive_name: str) -> Path:
+    """Return the marker file path for an archive."""
+    return Path(pooch.path) / f"{archive_name}.hash"
 
 
-class MultiPartDownloader:
-    """
-    Download multiple parts of a split archive.
+def marker_matches_registry(pooch, archive_name: str) -> bool:
+    """Check whether the marker file exists and matches registry hash."""
+    reg_hash = pooch.registry.get(archive_name)
+    if reg_hash is None:
+        return False
 
-    Parameters
-    ----------
-    parts : dict
-        Dictionary mapping part filenames to their SHA256 hashes.
-    """
+    mpath = marker_path(pooch, archive_name)
+    if not mpath.exists():
+        return False
 
-    def __init__(self, parts):
-        self.parts = parts
-
-    def __call__(self, url, output_file, pooch_inst):
-        """
-        Download all parts of the archive.
-
-        Parameters
-        ----------
-        url : str
-            Base URL (will be ignored, we'll construct URLs for each part)
-        output_file : str
-            Path where the concatenated file will be stored
-        pooch : Pooch
-            The Pooch instance
-        """
-        output_path = Path(output_file)
-        base_url = pooch_inst.base_url
-
-        # Download each part
-        part_files = []
-        for part_name, expected_hash in self.parts.items():
-            part_url = f"{base_url}{part_name}"
-            part_path = output_path.parent / part_name
-
-            # Download this part
-            print(f"Downloading {part_name}...")
-            part_path = pooch.retrieve(part_url, expected_hash, str(part_path))
-
-            part_files.append(part_path)
+    return mpath.read_text().strip() == reg_hash
 
 
-class CombinedReader:
-    """Helper class to read multiple files as one stream"""
+class ExtractTarZst:
+    def __call__(self, fname, action, pooch):
+        fname = Path(fname)
+        archive_name = fname.name
 
-    def __init__(self, filenames):
-        self.filenames = filenames
-        self.current_file = None
-        self.file_index = 0
+        if action in ("download", "update"):
+            # Decompress and extract
+            with open(fname, "rb") as compressed:
+                dctx = zstd.ZstdDecompressor()
+                with dctx.stream_reader(compressed) as reader:
+                    with tarfile.open(fileobj=reader, mode="r|") as tar:
+                        tar.extractall(path=fname.parent)
 
-    def read(self, size=-1):
-        data = b""
-        while size != 0:
-            if self.current_file is None:
-                if self.file_index >= len(self.filenames):
-                    break
-                self.current_file = open(self.filenames[self.file_index], "rb")
-                self.file_index += 1
+            # Write marker file with registry hash
+            reg_hash = pooch.registry.get(archive_name)
+            if reg_hash is not None:
+                mpath = marker_path(pooch, archive_name)
+                mpath.write_text(reg_hash)
 
-            chunk = self.current_file.read(size if size > 0 else 8192)
-            if not chunk:
-                self.current_file.close()
-                self.current_file = None
-                continue
+            # Delete the archive
+            fname.unlink()
 
-            data += chunk
-            if size > 0:
-                size -= len(chunk)
-
-        return data
-
-
-class ExtractAndCleanup:
-    """
-    Extract a tarball and delete the archive file.
-    """
-
-    def __init__(self, parts, extract_dir=None):
-        self.parts = parts
-        self.extract_dir = extract_dir
-
-    def __call__(self, fname, action, pooch_inst):
-        """ """
-        fname_path = Path(fname)
-        check = "tiffs_unpacked"
-
-        extract_path = fname_path.parent
-        # Only extract if we just downloaded or if extracted dir doesn't exist
-        if action in ("update", "download") or not (extract_path / check).exists():
-            extract_path.mkdir(parents=True, exist_ok=True)
-            dctx = zstd.ZstdDecompressor()
-            part_paths = [
-                fname_path.parent / part_name for part_name in self.parts.keys()
-            ]
-            with dctx.stream_reader(CombinedReader(part_paths)) as reader:
-                with tarfile.open(fileobj=reader, mode="r|") as tar:
-                    tar.extractall(path=extract_path)
-
-            # write a file at the end to signal that everything was unpacked successfully,
-            # check for that file the next time this is run
-            with (extract_path / check).open("w") as f:
-                f.write("")
-
-            # Delete the individual part files
-            for part_path in part_paths:
-                if part_path.exists():
-                    part_path.unlink()
-
-        return str(extract_path / "tiffs")
+        return fname.parent / "tiffs"
 
 
 def fetch_s2_chips():
     """
     Load S2 chips. Downloads multi-part tarball, extracts it, and cleans up
     the downloaded archive files.
-
-    Returns
-    -------
-    str
-        Path to the extracted directory containing the chips
     """
-    # Create the processor with the parts info so it can clean them up
-    processor = ExtractAndCleanup(parts=DISFOR_PARTS)
+    processor = ExtractTarZst()
+    extract_path = None
 
-    fname = DATA_GETTER.fetch(
-        "chips",
-        downloader=MultiPartDownloader(parts=DISFOR_PARTS),
-        processor=processor,
-    )
-    return Path(fname)
+    for archive_name, archive_hash in DATA_GETTER.registry.items():
+        if not archive_name.startswith("disfor"):
+            continue
+
+        # Skip download if marker exists and matches registry
+        if marker_matches_registry(DATA_GETTER, archive_name):
+            continue
+
+        # Otherwise fetch + extract
+        extract_path = DATA_GETTER.fetch(
+            archive_name,
+            processor=processor,
+        )
+
+    # Return the chips directory (assumes all tarballs extract into same dir)
+    if extract_path is None:
+        extract_path = Path(DATA_GETTER.path) / "tiffs"
+
+    return extract_path
