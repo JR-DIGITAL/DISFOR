@@ -1,6 +1,6 @@
 CLASSES = {
     100: "Alive Vegetation",
-    110: "Mature Forest",
+    110: "Undisturbed Forest",
     120: "Revegetation",
     121: "With Trees (after clear cut)",
     122: "Canopy closing (after thinning/defoliation)",

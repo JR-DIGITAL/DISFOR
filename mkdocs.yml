@@ -1,6 +1,10 @@
 site_name: DISFOR - Labelled Forest Disturbance Agent time-series 
+repo_url: https://github.com/JR-DIGITAL/DISFOR
+repo_name: JR-DIGITAL/DISFOR
 theme:
   name: material
+  favicon: assets/favicon.png
+  logo: assets/logo.svg
   features:
     - navigation.path
     - navigation.instant
@@ -15,7 +19,8 @@ theme:
     - navigation.top
     - content.code.copy
     - content.tabs.link
-  palette:
+  palette: 
+  - primary: light green 
 
   # Palette toggle for light mode
   - media: "(prefers-color-scheme: light)"
