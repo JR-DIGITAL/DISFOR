@@ -22,7 +22,7 @@ DATA_GETTER = pooch.create(
         "pixel_data.parquet": "294f074eea4a1a5ce32ce793c9118f9cecbd0fdd5c2b665f0d5a0145de41ed64",
         "train_ids.json": "e1aec584175ad95caf417c44feec6c808b9a45e617f5554d4495034a889d04ce",
         "val_ids.json": "c0745e6d5bc671e3906033d1d74ccca2b6989f445db9a28552d8f39ee717800b",
-        "classes.json": "bf088fa6b91725a947352e75a5c6967052df1015ac0d2e655787fa835f0ea244",
+        "classes.json": "da58107f44f2b9879c5336a4ba0b918024aff63c4c0c4852ee5380dd57a6bb94",
         "disfor-0-499.tar.zst": "fe062336c6db5106432983a24981fa3a7e7d854bc0699aeea85a7754f42e4c73",
         "disfor-500-999.tar.zst": "c20f4110402c5eeef912d5cf1d00410927102b0423775d54ba1fbfe134c563f9",
         "disfor-1000-1499.tar.zst": "5e33c5bddc467060f603665866a795c665a94199813248376c9b21c2d5913f27",

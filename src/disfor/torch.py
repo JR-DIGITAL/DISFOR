@@ -83,20 +83,21 @@ class DisturbanceDataset(GenericDataset, Dataset):
             "path": str(self.file_paths[index]),
         }
 
-    def plot_chip(self, idx: int):
+    def plot_chip(self, idx: int, ax: plt.Axes = None):
         """
-        Plot a true-color visualization (B04, B03, B02) of the chip
-        with the label as the title.
+        Plot a true-color visualization of the chip.
+
+        Args:
+            idx: Index of the chip to plot
+            ax: Optional matplotlib axis. If None, creates new figure.
         """
         sample = self[idx]
-        img = sample["image"].numpy()  # shape: (C, H, W)
+        img = sample["image"].numpy()
         label_idx = sample["label"].numpy()
 
-        # Map encoded label back to original class id + name
         class_id = self.encoder.inverse_transform(label_idx[np.newaxis, ...])[0]
         label_name = CLASSES[class_id]
 
-        # original band order in self.bands
         try:
             r = self.bands.index("B04")
             g = self.bands.index("B03")
@@ -107,16 +108,19 @@ class DisturbanceDataset(GenericDataset, Dataset):
             )
 
         rgb = np.stack([img[r], img[g], img[b]], axis=-1)
-
-        # Normalize for display
         gain = 5
         rgb = np.clip(rgb * gain, 0, 1)
 
-        plt.figure(figsize=(4, 4))
-        plt.imshow(rgb)
-        plt.title(f"{class_id} - {label_name}")
-        plt.axis("off")
-        plt.show()
+        if ax is None:
+            plt.figure(figsize=(4, 4))
+            ax = plt.gca()
+
+        ax.imshow(rgb)
+        ax.set_title(f"{class_id} - {label_name}")
+        ax.axis("off")
+
+        if ax is None:
+            plt.show()
 
 
 class DisturbanceDataModule(L.LightningDataModule):
@@ -172,7 +176,7 @@ class DisturbanceDataModule(L.LightningDataModule):
             with open(base_data_paths["val_ids.json"], "r") as f:
                 self.val_ids = json.load(f)
 
-    def setup(self, stage=None):
+    def setup(self, stage=None) -> None:
         """
         Setup the datasets for training and validation.
 
@@ -188,7 +192,7 @@ class DisturbanceDataModule(L.LightningDataModule):
             )
             self.class_weights = self.trn_ds.class_weights
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         """
         Returns the DataLoader for the training dataset.
 
@@ -205,7 +209,7 @@ class DisturbanceDataModule(L.LightningDataModule):
             persistent_workers=self.persist_workers and self.num_workers > 0,
         )
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         """
         Returns the DataLoader for the validation dataset.
 
