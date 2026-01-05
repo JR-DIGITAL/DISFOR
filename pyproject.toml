@@ -43,6 +43,10 @@ docs = [
     "plotly>=6.4.0",
     "plotnine>=0.15.0",
 ]
+remove = [
+    "nrt>=0.3.0",
+    "optuna>=4.6.0",
+]
 
 [tool.uv]
 default-groups = ["dev", "docs"]

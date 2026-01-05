@@ -5,6 +5,15 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 
+"""
+Extract Pixels
+
+Extracts time-series for the center point
+from stacks of geotiffs in a folder.
+
+Used to construct pixel_data.parquet from ./tiffs folder
+"""
+
 
 def extract_from_tif(tif: Path) -> pl.DataFrame:
     sample_id = tif.parent.stem

@@ -1,4 +1,24 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# dependencies = ["geopandas", "tqdm", "pyproj", "shapely", "pystac-client", "odc-stac", "rioxarray"]
+# ///
+
+"""
+Get Stack - Incomplete but Free
+
+Gets a stack of Sentinel-2 data using odc and a STAC catalog
+
+The used Element84 data is outdated in early S2 years (2015-2018).
+Because of this, 5b_evoland_fill_out and 5b_evoland_full_stack was used
+to get full stacks directly from CDSE.
+"""
+
+
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+
+import geopandas as gpd
+from tqdm import tqdm
 
 import pystac_client
 from odc.stac import stac_load
@@ -127,3 +147,20 @@ def get_stack(sample):
         resorted.sel(time=time).rio.to_raster(out_file, driver="COG")
 
     return True
+
+
+if __name__ == "__main__":
+    server_root = "//digs110/FER"
+    # evoland
+    evoland = Path(
+        server_root
+        + "/EvoLand/WP2_6_CFM/Referenzdaten/Database/PointMultitemp/evoland_ref_points_mt.shp"
+    )
+    evoland_multitemp = gpd.read_file(evoland).drop_duplicates("id")
+    # Create an iterable of rows (or use samples.iterrows() if needed)
+    sample_list = [sample for _, sample in evoland_multitemp.iterrows()]
+
+    with ProcessPoolExecutor(max_workers=8) as executor:
+        results = list(
+            tqdm(executor.map(get_stack, sample_list), total=len(sample_list))
+        )
