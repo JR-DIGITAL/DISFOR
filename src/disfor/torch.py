@@ -83,7 +83,7 @@ class DisturbanceDataset(GenericDataset, Dataset):
             "path": str(self.file_paths[index]),
         }
 
-    def plot_chip(self, idx: int, ax: plt.Axes = None):
+    def plot_chip(self, idx: int, ax: plt.Axes | None = None):
         """
         Plot a true-color visualization of the chip.
 
