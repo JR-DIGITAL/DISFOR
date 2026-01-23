@@ -63,7 +63,7 @@ class DatasetParams(TypedDict, total=False):
     min_clear_percentage_chip: NotRequired[int | None]
     months: NotRequired[List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] | None]
     max_days_since_event: NotRequired[int | dict | None]
-    sample_datasets: NotRequired[List[Literal["Evoland", "HRVPP", "Windthrow"]] | None]
+    sample_datasets: NotRequired[List[Literal[1, 2, 3]] | None]
 
     # Sampling parameters
     max_samples_per_event: NotRequired[int | None]
@@ -213,7 +213,7 @@ class GenericDataset:
         min_clear_percentage_chip: int | None = None,
         months: List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] | None = None,
         max_days_since_event: int | dict | None = None,
-        sample_datasets: List[Literal["Evoland", "HRVPP", "Windthrow"]] | None = None,
+        sample_datasets: List[Literal[1,2,3]] | None = None,
         # Sampling parameters
         max_samples_per_event: int | None = None,
         random_seed: int | None = None,

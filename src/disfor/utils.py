@@ -17,7 +17,7 @@ def generate_folds(n_folds: int, data_folder="data"):
     # Evoland: Group by cluster_id
     # Windthrow: Group by Wind Event
     clusters = groups.with_columns(
-        cluster=pl.when(dataset="HRVPP")
+        cluster=pl.when(dataset=2)
         .then(pl.col.sample_id.cast(pl.String))
         .otherwise(pl.format("{}{}", pl.col.dataset, pl.col.cluster_id))
     )
