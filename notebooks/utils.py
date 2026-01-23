@@ -114,6 +114,22 @@ def flags_to_label_df(flag_paths):
                 )
             else:
                 end_time_str, end_label = next(iterator, (None, None))
+                # Special handling of c class: c is non tree vegetation removal. The tree segment does not get interrupted,
+                # (since the canopy did not change)
+                while end_label == "c":
+                    rows.append(
+                        {
+                            "original_label": end_label,
+                            "start": datetime.strptime(
+                                end_time_str, "%Y-%m-%d %H:%M:%S.000000"
+                            ),
+                            "end": datetime.strptime(
+                                end_time_str, "%Y-%m-%d %H:%M:%S.000000"
+                            ).replace(hour=23, minute=59, second=59),
+                            "original_sample_id": sample_id,
+                        }
+                    )
+                    end_time_str, end_label = next(iterator, (None, None))
                 if end_label != label:
                     print("Missing Segment")
                     print(sample_id)
