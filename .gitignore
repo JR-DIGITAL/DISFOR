@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+.hypothesis
+flags
+lightning_logs
