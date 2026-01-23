@@ -75,7 +75,7 @@ def process_chunk(tif_list):
 if __name__ == "__main__":
     # List TIFF files
     print("Start glob")
-    tifs = list(Path("./data/tiffs").glob("*/*.tif"))
+    tifs = list(Path("/home/jonas/.cache/disfor/0.1.0/tiffs").glob("*/*.tif"))
     print("End glob")
     band_order = [
         "B02",
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         "SCL",
     ]
 
-    num_workers = 16  # or os.cpu_count()
+    num_workers = 8  # or os.cpu_count()
     chunks = list(chunked_iterable(tifs, 10000))
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:

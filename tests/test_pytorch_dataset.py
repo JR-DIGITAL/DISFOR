@@ -9,7 +9,7 @@ def test_dataset_init():
         target_classes=[110, 211],
         chip_size=32,
         confidence=["high"],
-        sample_datasets=["HRVPP", "Windthrow"],
+        sample_datasets=[2, 3],
         max_days_since_event=None,
         bands=None,
         months=None,
@@ -48,7 +48,7 @@ TARGET_CLASSES = [
 ]
 
 BANDS = ["B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B11", "B12", "SCL"]
-SAMPLE_DATASETS = ["Evoland", "HRVPP", "Windthrow"]
+SAMPLE_DATASETS = [1, 2, 3]
 CONFIDENCE_LEVELS = ["high", "medium"]
 CHIP_SIZES = [4, 8, 16, 32]
 MONTHS = list(range(1, 13))

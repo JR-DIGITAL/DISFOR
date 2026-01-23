@@ -17,12 +17,12 @@ DATA_GETTER = pooch.create(
     # version and replace the version with this string.
     version_dev="main",
     registry={
-        "samples.parquet": "dc6358f7f04fa0cf56cda6efb24ff1279399a4e30f50c808bf790f7e3b766517",
-        "labels.parquet": "9421e630f42da37737f2ed9f608f978b4c88af3ec51d72350d1b2169b3160108",
-        "pixel_data.parquet": "294f074eea4a1a5ce32ce793c9118f9cecbd0fdd5c2b665f0d5a0145de41ed64",
-        "train_ids.json": "e1aec584175ad95caf417c44feec6c808b9a45e617f5554d4495034a889d04ce",
-        "val_ids.json": "c0745e6d5bc671e3906033d1d74ccca2b6989f445db9a28552d8f39ee717800b",
-        "classes.json": "da58107f44f2b9879c5336a4ba0b918024aff63c4c0c4852ee5380dd57a6bb94",
+        "samples.parquet": "78200ae57211629d0c665177c5100bbe3dd3865818d1d08071ed63a2396997e7",
+        "labels.parquet": "13cf5d9ef367bd729654aae676c89f0315fc90af5ec36f9a7346465358759581",
+        "pixel_data.parquet": "ba7fc3b6e98213c45d49440f4e6ccaff5e4e89d736b873cb62fe1a8946fe8608",
+        "train_ids.json": "a661cfafd168d29b27ae2a46203668251d70148c78861de2e600a25d0dbf852e",
+        "val_ids.json": "429c27225be1b15fe675f0acf476eb7071afbc1ba8fde205c32896e3a7d44914",
+        "classes.json": "c6377165ac17750f2fa91e2c859495c99d539a4166a085ef4d0d9d9adc8dae1a",
         "disfor-0-499.tar.zst": "fe062336c6db5106432983a24981fa3a7e7d854bc0699aeea85a7754f42e4c73",
         "disfor-500-999.tar.zst": "c20f4110402c5eeef912d5cf1d00410927102b0423775d54ba1fbfe134c563f9",
         "disfor-1000-1499.tar.zst": "5e33c5bddc467060f603665866a795c665a94199813248376c9b21c2d5913f27",
