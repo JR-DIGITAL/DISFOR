@@ -8,16 +8,19 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "dask>=2026.1.1",
     "imagecodecs>=2025.8.2",
     "ipykernel>=6.30.1",
     "lightning>=2.5.5",
     "matplotlib>=3.10.6",
+    "nrt",
     "numpy>=2.3.3",
     "polars>=1.33.1",
     "pooch>=1.8.2",
     "pyarrow>=21.0.0",
     "pystac-client>=0.9.0",
     "rasterio>=1.4.3",
+    "rioxarray>=0.20.0",
     "scikit-learn>=1.7.2",
     "sentinelhub>=3.11.3",
     "tifffile>=2025.9.30",
@@ -44,12 +47,14 @@ docs = [
     "plotnine>=0.15.0",
 ]
 remove = [
-    "nrt>=0.3.0",
     "optuna>=4.6.0",
 ]
 
 [tool.uv]
 default-groups = ["dev", "docs"]
+
+[tool.uv.sources]
+nrt = { path = "../../2026/nrt", editable = true }
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
