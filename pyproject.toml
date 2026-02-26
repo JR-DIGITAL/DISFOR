@@ -1,7 +1,7 @@
 [project]
 name = "disfor"
 version = "0.1.0"
-description = "Add your description here"
+description = "Package to load DISFOR dataset. Dataset provides Forest Disturbance Agent Labels for use with Sentinel-2."
 readme = "README.md"
 authors = [
     { name = "Jonas Viehweger", email = "jonas.viehweger@joanneum.at" }
