@@ -1,5 +1,5 @@
 CLASSES = {
-    100: "Alive Vegetation",
+    100: "Healthy Vegetation",
     110: "Undisturbed Forest",
     120: "Revegetation",
     121: "With Trees (after clear cut)",

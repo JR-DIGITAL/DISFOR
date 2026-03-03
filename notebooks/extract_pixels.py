@@ -75,7 +75,9 @@ def process_chunk(tif_list):
 if __name__ == "__main__":
     # List TIFF files
     print("Start glob")
-    tifs = list(Path("/home/jonas/.cache/disfor/0.1.0/tiffs").glob("*/*.tif"))
+    tifs = list(
+        (Path.home() / "AppData/Local/disfor/disfor/Cache/0.1.0/tiffs").glob("*/*.tif")
+    )
     print("End glob")
     band_order = [
         "B02",
