@@ -1,6 +1,6 @@
 [project]
 name = "disfor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Package to load DISFOR dataset. Dataset provides Forest Disturbance Agent Labels for use with Sentinel-2."
 readme = "README.md"
 authors = [
@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "imagecodecs>=2025.8.2",
-    "lightning>=2.5.5",
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
     "polars>=1.33.1",
@@ -17,8 +16,13 @@ dependencies = [
     "pyarrow>=21.0.0",
     "scikit-learn>=1.7.2",
     "tifffile>=2025.9.30",
-    "torch>=2.8.0",
     "zstandard>=0.25.0",
+]
+
+[project.optional-dependencies]
+torch = [
+    "torch>=2.8.0",
+    "lightning>=2.5.5",
 ]
 
 [dependency-groups]

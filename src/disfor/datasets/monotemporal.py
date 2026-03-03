@@ -10,11 +10,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import polars as pl
 
-from disfor.const import CLASSES
-from disfor.data import GenericDataset, DatasetParams
+from ..const import CLASSES
+from .generic import GenericDataset, DatasetParams
 
 
-class DisturbanceDataset(GenericDataset, Dataset):
+class MonoTemporalClassification(GenericDataset, Dataset):
     """PyTorch Dataset that loads image chips from stored GeoTIFFs."""
 
     def __init__(
@@ -26,7 +26,7 @@ class DisturbanceDataset(GenericDataset, Dataset):
         """
         super().__init__(**kwargs)
         if self.data_folder is None:
-            from disfor.data_fetcher import fetch_s2_chips
+            from disfor.io import fetch_s2_chips
 
             self.tiff_folder = fetch_s2_chips()
         else:
@@ -123,7 +123,7 @@ class DisturbanceDataset(GenericDataset, Dataset):
             plt.show()
 
 
-class DisturbanceDataModule(L.LightningDataModule):
+class MonoTemporalClassificationDataModule(L.LightningDataModule):
     """
     Args:
         batch_size (int): Batch size for the dataloaders.
@@ -159,10 +159,10 @@ class DisturbanceDataModule(L.LightningDataModule):
             "val_ids.json",
         ]
         if data_folder is None:
-            from disfor.data_fetcher import DATA_GETTER
+            import disfor
 
             base_data_paths = {
-                filename: DATA_GETTER.fetch(filename) for filename in required_data
+                filename: disfor.get(filename) for filename in required_data
             }
         else:
             base_data_paths = {
@@ -184,10 +184,10 @@ class DisturbanceDataModule(L.LightningDataModule):
             stage (str): Stage of the training process ('fit', 'validate').
         """
         if stage in {"fit", None}:
-            self.trn_ds = DisturbanceDataset(
+            self.trn_ds = MonoTemporalClassification(
                 sample_ids=self.train_ids, data_folder=self.data_folder, **self.kwargs
             )
-            self.val_ds = DisturbanceDataset(
+            self.val_ds = MonoTemporalClassification(
                 sample_ids=self.val_ids, data_folder=self.data_folder, **self.kwargs
             )
             self.class_weights = self.trn_ds.class_weights

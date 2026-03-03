@@ -1,10 +1,10 @@
 import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
-from disfor.torch import DisturbanceDataset
+from disfor.datasets import MonoTemporalClassification
 
 
 def test_dataset_init():
-    test = DisturbanceDataset(
+    test = MonoTemporalClassification(
         sample_ids=None,
         target_classes=[110, 211],
         chip_size=32,
@@ -105,7 +105,7 @@ def test_tiff_dataset_initialization_and_basic_operations(
     various valid parameter combinations and perform basic operations.
     """
     # Initialize dataset with generated parameters
-    dataset = DisturbanceDataset(
+    dataset = MonoTemporalClassification(
         sample_ids=None,
         target_classes=target_classes,
         chip_size=chip_size,
@@ -159,7 +159,7 @@ def test_tiff_dataset_with_max_days_dict(target_classes, max_days_values):
         target_classes[i]: max_days_values[i] for i in range(num_classes_for_dict)
     }
 
-    dataset = DisturbanceDataset(
+    dataset = MonoTemporalClassification(
         target_classes=target_classes,
         max_days_since_event=max_days_dict,
         chip_size=32,
@@ -178,7 +178,7 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
     """
     Test that dataset can be filtered by specific sample_ids.
     """
-    dataset = DisturbanceDataset(
+    dataset = MonoTemporalClassification(
         sample_ids=sample_ids,
         chip_size=32,
     )
@@ -192,7 +192,7 @@ def test_tiff_dataset_with_sample_ids(sample_ids):
 @pytest.mark.parametrize("chip_size", CHIP_SIZES)
 def test_tiff_dataset_chip_sizes(chip_size):
     """Simple parametrized test for different chip sizes."""
-    dataset = DisturbanceDataset(
+    dataset = MonoTemporalClassification(
         chip_size=chip_size,
         target_classes=[110, 211],
         confidence=["high"],

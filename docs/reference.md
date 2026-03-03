@@ -1,18 +1,19 @@
 # Reference
 
-::: disfor.data
+::: disfor
     options:
       members:
-        - GenericDataset
-        - ForestDisturbanceData
+        - get
       show_root_heading: true
       show_source: true
 
-::: disfor.torch
+::: disfor.datasets
     options:
       members:
-        - DisturbanceDataset
-        - DisturbanceDataModule
+        - GenericDataset
+        - TabularDataset
+        - MonoTemporalClassificationDataset
+        - MonoTemporalClassificationDatamodule
       show_root_heading: true
       show_source: true
 
@@ -21,12 +22,5 @@
       members:
         - generate_folds
         - HierarchicalLabelEncoder
-      show_root_heading: true
-      show_source: true
-
-::: disfor.data_fetcher
-    options:
-      members:
-        - DATA_GETTER
       show_root_heading: true
       show_source: true

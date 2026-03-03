@@ -1,8 +1,8 @@
-from disfor.data import ForestDisturbanceData
+from disfor.datasets import TabularDataset
 
 
 def test_init():
-    _ = ForestDisturbanceData(
+    _ = TabularDataset(
         target_classes=[110, 211],
         confidence=["high"],
         sample_datasets=[2, 3],

@@ -1,9 +1,9 @@
 from pathlib import Path
 import json
-from typing import TypedDict, Literal, List, Dict, NotRequired, Unpack
+from typing import TypedDict, Literal, List, Dict, NotRequired
 import polars as pl
 
-from disfor.data_fetcher import DATA_GETTER
+import disfor
 from disfor.const import CLASSES
 
 
@@ -126,11 +126,11 @@ class GenericDataset:
     A generic class which serves to load, filter and pre-process the raw data.
 
     There are two classes which then bring the filtered and pre-processed data into formats which
-    can be used with pytorch ([`disfor.torch.DisturbanceDataset`][]) and sklearn style classifiers ([`disfor.data.ForestDisturbanceData`][]) respectively.
+    can be used with pytorch ([`disfor.datasets.MonoTemporalClassification`][]) and sklearn style classifiers ([`disfor.datasets.TabularDataset`][]) respectively.
 
     Args:
-        data_folder: Path to root data folder containng pixel_data.parquet, labels.parquet and samples.parquet,
-            if not specified, data will be fetched using [`disfor.data_fetcher.DATA_GETTER`][]
+        data_folder: Path to root data folder containing pixel_data.parquet, labels.parquet and samples.parquet,
+            if not specified, data will be fetched using [`disfor.get`][]
         target_classes: Which classes should be included
         class_mapping_overrides: Map classes to other classes for example {221: 211, 222: 211} would map both of the salvage classes to clear cut.
             This remapping happens before filtering of `target_classes`. This means that the items of the dict need to be specified in target_classes,
@@ -213,7 +213,7 @@ class GenericDataset:
         min_clear_percentage_chip: int | None = None,
         months: List[Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]] | None = None,
         max_days_since_event: int | dict | None = None,
-        sample_datasets: List[Literal[1,2,3]] | None = None,
+        sample_datasets: List[Literal[1, 2, 3]] | None = None,
         # Sampling parameters
         max_samples_per_event: int | None = None,
         random_seed: int | None = None,
@@ -369,15 +369,17 @@ class GenericDataset:
         pixel_data = (
             pl.read_parquet(
                 self.base_data_paths["pixel_data.parquet"],
-                columns=set(
-                    [
-                        "sample_id",
-                        "SCL",
-                        "timestamps",
-                        "label",
-                        f"percent_clear_{chip_size}x{chip_size}",
-                    ]
-                    + self.bands
+                columns=list(
+                    set(
+                        [
+                            "sample_id",
+                            "SCL",
+                            "timestamps",
+                            "label",
+                            f"percent_clear_{chip_size}x{chip_size}",
+                        ]
+                        + self.bands
+                    )
                 ),
             )
             .join(labels, on=["sample_id", "label"], how="inner")
@@ -446,7 +448,7 @@ class GenericDataset:
         ]
         if self.data_folder is None:
             self.base_data_paths = {
-                filename: DATA_GETTER.fetch(filename) for filename in required_data
+                filename: disfor.get(filename) for filename in required_data
             }
         else:
             self.base_data_paths = {
@@ -535,27 +537,3 @@ class GenericDataset:
             raise ValueError(f"Unknown outlier method: {self.outlier_method}")
 
         return df.filter(~pl.any_horizontal(mask))
-
-
-class ForestDisturbanceData(GenericDataset):
-    """Class providing data for sklearn style models
-
-    For usage see the [dataloaders usage page](../usage/dataloaders).
-
-    Args:
-        **kwargs: keyword arguments being passed to [disfor.data.GenericDataset][]
-    """
-
-    def __init__(self, **kwargs: Unpack[DatasetParams]):
-        super().__init__(**kwargs)
-        train_df = self.pixel_data.filter(pl.col.sample_id.is_in(self._train_ids))
-        test_df = self.pixel_data.filter(pl.col.sample_id.is_in(self._val_ids))
-
-        # Train
-        self.X_train = train_df[self.bands].to_numpy(writable=True)
-        self.y_train = train_df["label_encoded"].to_numpy(writable=True)
-        self.group_train = train_df["cluster_id_encoded"].to_numpy(writable=True)
-        # Test
-        self.X_test = test_df[self.bands].to_numpy(writable=True)
-        self.y_test = test_df["label_encoded"].to_numpy(writable=True)
-        self.group_test = test_df["cluster_id_encoded"].to_numpy(writable=True)

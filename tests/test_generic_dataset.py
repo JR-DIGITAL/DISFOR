@@ -1,5 +1,5 @@
 from hypothesis import given, strategies as st, settings, HealthCheck
-from disfor.data import GenericDataset
+from disfor.datasets import GenericDataset
 
 # Define valid values as strategies
 TARGET_CLASSES = [

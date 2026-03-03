@@ -500,11 +500,10 @@ wheels = [
 
 [[package]]
 name = "disfor"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "imagecodecs" },
-    { name = "lightning" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "polars" },
@@ -512,8 +511,13 @@ dependencies = [
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "tifffile" },
-    { name = "torch" },
     { name = "zstandard" },
+]
+
+[package.optional-dependencies]
+torch = [
+    { name = "lightning" },
+    { name = "torch" },
 ]
 
 [package.dev-dependencies]
@@ -542,7 +546,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "imagecodecs", specifier = ">=2025.8.2" },
-    { name = "lightning", specifier = ">=2.5.5" },
+    { name = "lightning", marker = "extra == 'torch'", specifier = ">=2.5.5" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "polars", specifier = ">=1.33.1" },
@@ -550,9 +554,10 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "tifffile", specifier = ">=2025.9.30" },
-    { name = "torch", specifier = ">=2.8.0" },
+    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.8.0" },
     { name = "zstandard", specifier = ">=0.25.0" },
 ]
+provides-extras = ["torch"]
 
 [package.metadata.requires-dev]
 dev = [
