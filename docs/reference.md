@@ -12,7 +12,7 @@
       members:
         - GenericDataset
         - TabularDataset
-        - MonoTemporalClassificationDataset
+        - MonoTemporalClassification
         - MonoTemporalClassificationDatamodule
       show_root_heading: true
       show_source: true
