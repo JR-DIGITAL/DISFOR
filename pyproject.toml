@@ -1,12 +1,20 @@
 [project]
 name = "disfor"
 version = "0.2.0"
-description = "Package to load DISFOR dataset. Dataset provides Forest Disturbance Agent Labels for use with Sentinel-2."
+description = "Utilities to load and filter DISFOR dataset. The dataset provides forest disturbance agent labels for use with Sentinel-2."
 readme = "README.md"
 authors = [
     { name = "Jonas Viehweger", email = "jonas.viehweger@joanneum.at" }
 ]
 requires-python = ">=3.12"
+license = {text = "EUPL-1.2"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)"
+]
 dependencies = [
     "imagecodecs>=2025.8.2",
     "matplotlib>=3.10.6",
@@ -47,6 +55,12 @@ docs = [
     "plotly>=6.4.0",
     "plotnine>=0.15.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JR-DIGITAL/DISFOR"
+Documentation = "https://jr-digital.github.io/DISFOR/"
+Repository = "https://github.com/JR-DIGITAL/DISFOR"
+Issues = "https://github.com/JR-DIGITAL/DISFOR/issues"
 
 [tool.uv]
 default-groups = ["dev", "docs"]
