@@ -5,9 +5,9 @@ import zstandard as zstd
 from typing import Literal
 
 registry = {
-    "samples.parquet": "1da65ad876e7269b138b5fa88be5f4a6b7f317f16f81bdab11c8eb49bd5232d7",
-    "labels.parquet": "322c6d77cc8db13c4f2fb6b09c0f2c98e0f476c7315bc6412f40be4ad0b0b360",
-    "pixel_data.parquet": "058fbe1c04934698929f25fe84dbf4b13d6c7e2298165d5b4856d42e37f6f368",
+    "samples.parquet": "82c6deebb431f6b91f4cce25a25f27e0b9754c08de9271d6336db4af7e992fe9",
+    "labels.parquet": "017ece3222be9fe0d3197d35f837040cc0fb97248ad5f5058d6554bb911f503a",
+    "pixel_data.parquet": "04f60deef402465df3e0321084489976b3b7c3905a6e0f06963bb42f81a01cc3",
     "train_ids.json": "316df9ed292ddd9d4da899e4de8515df561e95b3fc8309fc930723ccbe419fa3",
     "val_ids.json": "bbda635c31cc0f7e6954fab71f0944e595ffa81270b6385fb7d2495fb0d9c794",
     "classes.json": "8c0ee798c8e2ba2fc85e98584f35647fd720f7845b2e684ad5ae14d54fc3150e",

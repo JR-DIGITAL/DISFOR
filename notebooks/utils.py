@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import polars as pl
 
-EVENT_LABELS = {"5", "6", "7", "8", "9", "a", "c", "d", "e"}
+EVENT_LABELS = {"5", "6", "7", "8", "9", "a", "c", "d", "e", "f"}
 
 
 def pickle_to_json_flags(meta_df):
@@ -96,14 +96,7 @@ def flags_to_label_df(flag_paths):
         for i, (time_str, label) in enumerate(iterator):
             time = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.000000")
             if label in EVENT_LABELS:
-                # handle 9 (abiotic other, mostly used as drought, i.e. segment)
-                if label == "9" and i + 1 < len(flag_list) and flag_list[i + 1] == 9:
-                    end_time_str, label = next(iterator)
-                    end_time = datetime.strptime(
-                        end_time_str, "%Y-%m-%d %H:%M:%S.000000"
-                    )
-                else:
-                    end_time = time.replace(hour=23, minute=59, second=59)
+                end_time = time.replace(hour=23, minute=59, second=59)
                 rows.append(
                     {
                         "original_label": label,
