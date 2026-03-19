@@ -1,6 +1,6 @@
 [project]
 name = "disfor"
-version = "0.2.1"
+version = "0.2.2"
 description = "Utilities to load and filter DISFOR dataset. The dataset provides forest disturbance agent labels for use with Sentinel-2."
 readme = "README.md"
 authors = [
