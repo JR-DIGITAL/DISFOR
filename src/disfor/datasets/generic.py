@@ -296,9 +296,9 @@ class GenericDataset:
         if sample_datasets is not None:
             samples_filters.append(pl.col.dataset.is_in(sample_datasets))
         if omit_low_tcd:
-            samples_filters.append(~pl.col.comment.str.contains("TCD"))
+            samples_filters.append(~pl.col.comment.fill_null("").str.contains("TCD"))
         if omit_border:
-            samples_filters.append(~pl.col.comment.str.contains("border"))
+            samples_filters.append(~pl.col.comment.fill_null("").str.contains("border"))
 
         # Filters for labels.parquet
         labels_filters = [pl.lit(True)]
