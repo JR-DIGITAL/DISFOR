@@ -82,6 +82,7 @@ MONTHS = list(range(1, 13))
     omit_border=st.booleans(),
     omit_low_tcd=st.booleans(),
     label_strategy=st.sampled_from(["LabelEncoder", "LabelBinarizer", "Hierarchical"]),
+    ignore_revegetation=st.booleans(),
 )
 @settings(
     max_examples=50,  # Adjust based on your test runtime needs
@@ -107,6 +108,7 @@ def test_tiff_dataset_initialization(
     omit_border,
     omit_low_tcd,
     label_strategy,
+    ignore_revegetation,
 ):
     """
     Integration test that verifies TiffDataset can be initialized with
@@ -132,4 +134,5 @@ def test_tiff_dataset_initialization(
         outlier_threshold=outlier_threshold,
         target_majority_samples=target_majority_samples,
         label_strategy=label_strategy,
+        ignore_revegetation=ignore_revegetation,
     )

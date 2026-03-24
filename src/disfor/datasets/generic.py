@@ -119,6 +119,7 @@ class DatasetParams(TypedDict, total=False):
         ]
         | None
     ]
+    ignore_revegetation: NotRequired[bool]
 
 
 class GenericDataset:
@@ -162,6 +163,8 @@ class GenericDataset:
             it will be removed. Default is all bands which are defined in the parameter `bands`
         label_strategy: How the values in `target_classes` should be encoded. LabelEncoder and LabelBinarizer correspond to the sklearn encoders.
             Hierarchical is a custom encoding implemented for the hierarchical classes. For more details see [`disfor.utils.HierarchicalLabelEncoder`][]
+        ignore_revegetation: Set to true, if revegetation labels (12X) should be ignored. This is useful for including more acquisitions showing thinning,
+            since thinning is usually immediately followed by a class 122 (canopy closing), leaving very little acquisitions labelled as thinning.
 
     Attributes:
         pixel_data: Polars dataframe containing filtered and pre-processed data.
@@ -260,6 +263,7 @@ class GenericDataset:
             ]
         ]
         | None = None,
+        ignore_revegetation: bool = False,
     ):
         self.random_seed = random_seed
         self.data_folder = data_folder
@@ -349,12 +353,48 @@ class GenericDataset:
             use_pyarrow=True,
         ).filter(samples_filters)
 
-        labels = (
-            pl.read_parquet(
-                self.base_data_paths["labels.parquet"],
-                columns=["sample_id", "label", "start"],
+        labels = pl.read_parquet(
+            self.base_data_paths["labels.parquet"],
+            columns=["sample_id", "label", "start"],
+        )
+
+        pixel_data = pl.read_parquet(
+            self.base_data_paths["pixel_data.parquet"],
+            columns=list(
+                set(
+                    [
+                        "sample_id",
+                        "SCL",
+                        "timestamps",
+                        "label",
+                        f"percent_clear_{chip_size}x{chip_size}",
+                    ]
+                    + self.bands
+                )
+            ),
+        )
+
+        if ignore_revegetation:
+            labels = (
+                # remove all 120 labels
+                labels.filter((pl.col.label < 120) | (pl.col.label >= 130))
+                .sort(["sample_id", "start"])
+                # recompute start_next_label (not strictly necessary)
+                .with_columns(
+                    pl.col("start")
+                    .shift(-1)
+                    .over("sample_id")
+                    .alias("start_next_label")
+                )
             )
-            .join(samples, on="sample_id", how="inner")
+            pixel_data = pixel_data.drop("label").join_asof(
+                labels.select("sample_id", "label", timestamps=pl.col.start.dt.date()),
+                by="sample_id",
+                on="timestamps",
+            )
+
+        labels = (
+            labels.join(samples, on="sample_id", how="inner")
             .with_columns(
                 pl.col.label.replace_strict(
                     self.class_mapping_overrides,
@@ -366,25 +406,9 @@ class GenericDataset:
         )
 
         # Load and filter pixel data
-        pixel_data = (
-            pl.read_parquet(
-                self.base_data_paths["pixel_data.parquet"],
-                columns=list(
-                    set(
-                        [
-                            "sample_id",
-                            "SCL",
-                            "timestamps",
-                            "label",
-                            f"percent_clear_{chip_size}x{chip_size}",
-                        ]
-                        + self.bands
-                    )
-                ),
-            )
-            .join(labels, on=["sample_id", "label"], how="inner")
-            .filter(pixel_data_filters)
-        )
+        pixel_data = pixel_data.join(
+            labels, on=["sample_id", "label"], how="inner"
+        ).filter(pixel_data_filters)
 
         # Outlier removal using statistical measures
         if remove_outliers and len(pixel_data) > 0:
