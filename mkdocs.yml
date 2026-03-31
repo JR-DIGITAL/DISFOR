@@ -78,4 +78,5 @@ nav:
   - Usage:
     - Data Overview: usage/dataset-overview.ipynb
     - Data Loaders: usage/dataloaders.ipynb
+    - Explore Samples: usage/explore-samples.ipynb
   - reference.md

@@ -46,6 +46,7 @@ dev = [
 docs = [
     "folium>=0.20.0",
     "geopandas>=1.1.1",
+    "itables>=2.7.3",
     "kaleido>=1.2.0",
     "mapclassify>=2.10.0",
     "matplotlib>=3.10.6",
