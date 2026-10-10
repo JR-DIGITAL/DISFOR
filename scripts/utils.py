@@ -15,6 +15,14 @@ import disfor
 # start and end flag.
 EVENT_LABELS = {200, 210, 211, 212, 213, 220, 221, 222, 240, 242, 243, 244, 245}
 
+BIOTIC_LABELS = {230, 231, 232}
+ABIOTIC_LABELS = {240, 241, 242, 243, 244, 245}
+# Salvage labels and the disturbance labels which must not directly precede them
+SALVAGE_MISMATCHES = {
+    221: ("biotic", "abiotic", ABIOTIC_LABELS),
+    222: ("abiotic", "biotic", BIOTIC_LABELS),
+}
+
 # Inverse of the label mapping in 1_homogenize_samples.ipynb, including the
 # relabelling of salvage (221, 222) and canopy closing (122)
 ORIGINAL_LABELS = {
@@ -160,13 +168,14 @@ def labels_to_flags(labels: pd.DataFrame) -> dict[str, str]:
     return dict(sorted(flags.items()))
 
 
-def flags_to_labels(flags: dict[str, str]) -> list[dict]:
-    """Decode tsbrowser flags of a single sample to label rows.
+def _decode_flags(flags: dict[str, str]) -> tuple[list[dict], list[str]]:
+    """Decode tsbrowser flags of a single sample to label rows and issues.
 
     Segment flags open and close a segment of the same label, events may lie
-    within a segment.
+    within a segment. Segments which are not closed are reported as issues and
+    left out of the label rows.
     """
-    rows = []
+    rows, issues = [], []
     open_segment = None
     for key, value in sorted(flags.items()):
         date = pd.Timestamp(key, tz="UTC")
@@ -179,13 +188,80 @@ def flags_to_labels(flags: dict[str, str]) -> list[dict]:
             rows.append({**open_segment, "end": date})
             open_segment = None
         else:
-            raise ValueError(
-                f"Segment {label} starts on {key} before segment "
-                f"{open_segment['label']} ends"
+            issues.append(
+                f"segment {open_segment['label']} starting "
+                f"{open_segment['start']:{FLAG_DATE_FORMAT}} has no end flag "
+                f"before segment {label} starts on {key}"
             )
+            open_segment = {"label": label, "start": date}
     if open_segment is not None:
-        raise ValueError(f"Segment {open_segment['label']} has no end flag")
-    return sorted(rows, key=lambda row: row["start"])
+        issues.append(
+            f"segment {open_segment['label']} starting "
+            f"{open_segment['start']:{FLAG_DATE_FORMAT}} has no end flag"
+        )
+    return sorted(rows, key=lambda row: row["start"]), issues
+
+
+def _salvage_issues(flags: dict[str, str]) -> list[str]:
+    """Report salvage flags directly following a disturbance of the other kind,
+    for example a biotic salvage directly after an abiotic disturbance."""
+    issues = []
+    previous = None
+    for key, value in sorted(flags.items()):
+        label = int(value)
+        if label in SALVAGE_MISMATCHES and previous is not None:
+            salvage_kind, other_kind, other_labels = SALVAGE_MISMATCHES[label]
+            if previous[1] in other_labels:
+                issues.append(
+                    f"{salvage_kind} salvage {label} on {key} directly after "
+                    f"{other_kind} flag {previous[1]} on {previous[0]}"
+                )
+        previous = (key, label)
+    return issues
+
+
+def flags_to_labels(flags: dict[str, str]) -> list[dict]:
+    """Decode tsbrowser flags of a single sample to label rows.
+
+    Raises a ValueError listing all issues if a segment has no end flag.
+    """
+    rows, issues = _decode_flags(flags)
+    if issues:
+        raise ValueError("; ".join(issues))
+    return rows
+
+
+def validate_campaign(campaign: dict) -> list[str]:
+    """Check a tsbrowser campaign before converting it with `campaign_to_tables`.
+
+    Returns a list of all issues found: segments without an end flag, missing
+    interpreter or confidence, salvage flags directly following a disturbance
+    of the other kind (biotic/abiotic) and samples sharing the exact same
+    coordinates.
+    An empty list means the campaign is valid.
+    """
+    issues = []
+    samples_by_coordinates = {}
+    for feature in campaign["features"]:
+        properties = feature["properties"]
+        sample_id = properties.get("sample_id")
+        flags = properties.get("flags", {})
+        for issue in _decode_flags(flags)[1] + _salvage_issues(flags):
+            issues.append(f"Sample {sample_id}: {issue}")
+        for column in ["interpreter", "confidence"]:
+            value = properties.get(column)
+            if value is None or not str(value).strip():
+                issues.append(f"Sample {sample_id}: missing {column}")
+        coordinates = tuple(feature["geometry"]["coordinates"])
+        samples_by_coordinates.setdefault(coordinates, []).append(sample_id)
+
+    for coordinates, sample_ids in samples_by_coordinates.items():
+        if len(sample_ids) > 1:
+            issues.append(
+                f"Samples {', '.join(map(str, sample_ids))}: duplicated point "
+                f"at {coordinates}"
+            )
+    return issues
 
 
 def tables_to_campaign(
@@ -234,8 +310,15 @@ def campaign_to_tables(campaign: dict) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
     """Convert a tsbrowser campaign to samples and labels tables.
 
     Inverse of `tables_to_campaign`. The returned tables have the schema of
-    samples.parquet and labels.parquet.
+    samples.parquet and labels.parquet. Raises a ValueError listing all issues
+    found by `validate_campaign`.
     """
+    issues = validate_campaign(campaign)
+    if issues:
+        raise ValueError(
+            f"Campaign has {len(issues)} issues:\n" + "\n".join(issues)
+        )
+
     sample_rows, label_rows, geometries = [], [], []
     for feature in campaign["features"]:
         properties = feature["properties"]

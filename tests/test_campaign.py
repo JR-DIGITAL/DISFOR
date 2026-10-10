@@ -9,11 +9,13 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from utils import (
     EVENT_LABELS,
+    _salvage_issues,
     campaign_header,
     campaign_to_tables,
     flags_to_labels,
     labels_to_flags,
     tables_to_campaign,
+    validate_campaign,
 )
 
 import disfor
@@ -25,6 +27,7 @@ with disfor.get("classes.json").open() as f:
 
 # JSON and arrow can't represent lone surrogates
 text = st.text(alphabet=st.characters(blacklist_categories=("Cs",)), max_size=20)
+non_blank_text = text.filter(str.strip)
 
 
 @st.composite
@@ -67,23 +70,25 @@ def flags(draw):
 @st.composite
 def campaigns(draw):
     sample_ids = draw(st.lists(st.integers(0, 2**16 - 1), max_size=5, unique=True))
+    coordinates = draw(
+        st.lists(
+            st.tuples(st.floats(-180, 180), st.floats(-90, 90)),
+            min_size=len(sample_ids),
+            max_size=len(sample_ids),
+            unique=True,
+        )
+    )
     features = []
-    for sample_id in sorted(sample_ids):
+    for sample_id, (x, y) in zip(sorted(sample_ids), coordinates):
         features.append(
             {
                 "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [
-                        draw(st.floats(-180, 180)),
-                        draw(st.floats(-90, 90)),
-                    ],
-                },
+                "geometry": {"type": "Point", "coordinates": [x, y]},
                 "properties": {
                     "sample_id": sample_id,
-                    "flags": draw(flags()),
+                    "flags": draw(flags().filter(lambda f: not _salvage_issues(f))),
                     "original_sample_id": draw(st.integers(-(2**63), 2**63 - 1)),
-                    "interpreter": draw(text),
+                    "interpreter": draw(non_blank_text),
                     "dataset": draw(st.integers(0, 2**8 - 1)),
                     "source": draw(text),
                     "source_description": draw(text),
@@ -202,3 +207,42 @@ def test_flag_date_collision():
     )
     with pytest.raises(ValueError):
         labels_to_flags(labels)
+
+
+def test_validate_campaign_reports_all_issues():
+    def feature(sample_id, coordinates, flags, interpreter="me", confidence="high"):
+        return {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": coordinates},
+            "properties": {
+                "sample_id": sample_id,
+                "flags": flags,
+                "interpreter": interpreter,
+                "confidence": confidence,
+            },
+        }
+
+    campaign = {
+        "features": [
+            feature(0, [1.0, 2.0], {"2020-01-01": "110"}),
+            feature(1, [1.0, 2.0], {"2020-01-01": "211"}, interpreter=""),
+            feature(2, [3.0, 4.0], {"2020-01-01": "110", "2021-01-01": "120"}),
+            feature(3, [5.0, 6.0], {"2020-01-01": "211"}, confidence=""),
+            feature(4, [7.0, 8.0], {"2020-01-01": "243", "2020-02-01": "221"}),
+            feature(
+                5,
+                [9.0, 10.0],
+                {"2020-01-01": "231", "2020-06-01": "231", "2020-07-01": "222"},
+            ),
+            # matching salvage is fine
+            feature(6, [11.0, 12.0], {"2020-01-01": "243", "2020-02-01": "222"}),
+        ]
+    }
+    issues = validate_campaign(campaign)
+    assert len(issues) == 8
+    assert sum("no end flag" in issue for issue in issues) == 3
+    assert "Sample 1: missing interpreter" in issues
+    assert "Sample 3: missing confidence" in issues
+    assert any("Samples 0, 1: duplicated point" in issue for issue in issues)
+    assert any(issue.startswith("Sample 4: biotic salvage") for issue in issues)
+    assert any(issue.startswith("Sample 5: abiotic salvage") for issue in issues)
