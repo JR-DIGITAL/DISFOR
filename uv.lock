@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [[package]]
@@ -513,8 +513,9 @@ wheels = [
 
 [[package]]
 name = "disfor"
-version = "0.2.4"
+version = "0.3.0"
 source = { editable = "." }
+default-groups = ["dev", "docs"]
 dependencies = [
     { name = "imagecodecs" },
     { name = "matplotlib" },
