@@ -28,7 +28,7 @@ _DATA_GETTER = pooch.create(
     path=pooch.os_cache("disfor"),
     # Base URL of the remote data store. Will call .format on this string
     # to insert the version (see below).
-    base_url="https://huggingface.co/datasets/JR-DIGITAL/DISFOR/resolve/main/",
+    base_url="https://huggingface.co/datasets/JR-DIGITAL/DISFOR/resolve/{version}/",
     # Change this, whenever the DATA (on huggingface or zenodo) changes
     version="0.1.0",
     # If a version as a "+XX.XXXXX" suffix, we'll assume that this is a dev
