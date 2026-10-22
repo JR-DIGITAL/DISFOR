@@ -5,29 +5,77 @@ import numpy as np
 import polars as pl
 
 
-def generate_folds(n_folds: int, data_folder="data"):
+EARTH_RADIUS_M = 6_371_000
+
+
+def spatial_groups(data_folder="data", buffer_m: float = 3000) -> pl.DataFrame:
+    """
+    Assign every sample to a spatially independent group.
+
+    Two samples end up in the same group if they are closer than `buffer_m`,
+    or if they share a cluster (Evoland cluster, Windthrow event). Groups are the
+    connected components of these links, so samples in different groups are
+    always at least `buffer_m` apart. HRVPP cluster_ids span entire S2 tiles and
+    are therefore not used for linking.
+
+    Returns:
+        DataFrame with columns sample_id and spatial_group
+    """
+    import pyarrow.parquet as pq
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    from sklearn.neighbors import BallTree
+
+    table = pq.read_table(
+        Path(data_folder) / "samples.parquet",
+        columns=["sample_id", "dataset", "cluster_id", "geometry"],
+    )
+    samples = pl.from_arrow(table.drop_columns("geometry"))
+    # Geometries are little endian WKB points (1 byte order, 4 type, 8 x, 8 y)
+    wkb = np.frombuffer(b"".join(table["geometry"].to_pylist()), dtype=np.uint8)
+    lonlat = wkb.reshape(-1, 21)[:, 5:].copy().view("<f8")
+    n = len(samples)
+
+    tree = BallTree(np.radians(lonlat[:, ::-1]), metric="haversine")
+    neighbours = tree.query_radius(
+        np.radians(lonlat[:, ::-1]), r=buffer_m / EARTH_RADIUS_M
+    )
+    rows = np.repeat(np.arange(n), [len(nb) for nb in neighbours])
+    cols = np.concatenate(neighbours)
+
+    # link each sample to the first sample of its cluster
+    cluster_key = samples.select(
+        pl.when(dataset=2)
+        .then(pl.format("s{}", pl.col.sample_id))
+        .otherwise(pl.format("{}{}", pl.col.dataset, pl.col.cluster_id))
+    ).to_series()
+    first_of_cluster = (
+        pl.DataFrame({"key": cluster_key, "idx": np.arange(n)})
+        .select(pl.col.idx.first().over("key"))
+        .to_series()
+        .to_numpy()
+    )
+    rows = np.concatenate([rows, np.arange(n)])
+    cols = np.concatenate([cols, first_of_cluster])
+
+    graph = coo_matrix((np.ones(len(rows)), (rows, cols)), shape=(n, n))
+    _, group = connected_components(graph, directed=False)
+    return samples.select("sample_id").with_columns(spatial_group=group)
+
+
+def generate_folds(n_folds: int, data_folder="data", buffer_m: float = 3000):
+    """
+    Generate cross validation folds, stratified by label, where samples of
+    different folds are at least `buffer_m` apart (see `spatial_groups`).
+    """
     from sklearn.model_selection import StratifiedGroupKFold
 
-    groups = pl.read_parquet(
-        Path(data_folder) / "samples.parquet",
-        columns=["sample_id", "cluster_id", "comment", "dataset", "confidence"],
-        use_pyarrow=True,
-    )
-    # sample_ids in HRVPP not highly correlated -> use sample_id as group
-    # Evoland: Group by cluster_id
-    # Windthrow: Group by Wind Event
-    clusters = groups.with_columns(
-        cluster=pl.when(dataset=2)
-        .then(pl.col.sample_id.cast(pl.String))
-        .otherwise(pl.format("{}{}", pl.col.dataset, pl.col.cluster_id))
-    )
     samples_w_clusters = (
         pl.read_parquet(Path(data_folder) / "labels.parquet")
-        .join(clusters.select("sample_id", "cluster"), on="sample_id")
-        .sort("cluster")
+        .join(spatial_groups(data_folder, buffer_m), on="sample_id")
         .with_columns(
             pl.col.label.cast(pl.Int16),
-            cluster_int=pl.col("cluster").rle_id(),
+            cluster_int=pl.col.spatial_group,
         )
     )
     sgkf = StratifiedGroupKFold(n_splits=n_folds)
