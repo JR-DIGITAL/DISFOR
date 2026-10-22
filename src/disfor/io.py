@@ -6,12 +6,12 @@ import pooch
 import zstandard as zstd
 
 registry = {
-    "samples.parquet": "654a4e58b5274263c7c416e5ba10d36ea93d5a72129516ee62dc21ccae494aea",
-    "labels.parquet": "10526e8ffabca591f9399a39ad1c1a75d8691a8bf280eab244b6ee239244634a",
+    "samples.parquet": "fea12863181d6003df2377e39f21ce2b4b94ae8ca509a385460c340610db5a9f",
+    "labels.parquet": "cf742dc08ca91d412a0d5ec7726618042ad43cc87d1d75daa6fb57e972a1130f",
     "pixel_data.parquet": "0fb66cdba50a8492ab478e7a5e59ed490b84faaaf070c7735f55589bb308b69a",
-    "train_ids.json": "1a12ef7a60d6dbaafbf8d0302b59e85f4407085c4d73006385c3f83828826703",
-    "val_ids.json": "bbda635c31cc0f7e6954fab71f0944e595ffa81270b6385fb7d2495fb0d9c794",
-    "classes.json": "8c0ee798c8e2ba2fc85e98584f35647fd720f7845b2e684ad5ae14d54fc3150e",
+    "train_ids.json": "14a9f88d14154d4136a7b50c8efe13f67f1f609213c14cdf461e1bd40ed997c2",
+    "val_ids.json": "f24f28df1a902b5f1aeb775cda29e5be78157f3d6c9330927ea4e72697adf2a5",
+    "classes.json": "80691cec88e4d90798fc8378032f14e6bd488a39d0a8c21ecf11c93b1fa7713b",
     "disfor-0-499.tar.zst": "ec3e920022cf579461c43902f28cae0a1c2c7bdb62fb67e99991c57ee812bbda",
     "disfor-500-999.tar.zst": "63dc9f18715a6e8da9b49c41f461246485477f41855da2d4090618cb4c9aefea",
     "disfor-1000-1499.tar.zst": "3da9166c1164e91f77591daa43034a3e2831a7472579b5b2d05c7ccdb5b63ec9",
@@ -31,7 +31,7 @@ _DATA_GETTER = pooch.create(
     # to insert the version (see below).
     base_url="https://huggingface.co/datasets/JR-DIGITAL/DISFOR/resolve/{version}/",
     # Change this, whenever the DATA (on huggingface or zenodo) changes
-    version="0.2.0",
+    version="0.2.1",
     # If a version as a "+XX.XXXXX" suffix, we'll assume that this is a dev
     # version and replace the version with this string.
     version_dev="main",
