@@ -1,0 +1,69 @@
+cff-version: 1.2.0
+title: >-
+  Dense labelled time-series for mapping European forest
+  disturbance agents
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: Jonas
+    family-names: Viehweger
+  - given-names: Manuela
+    family-names: Hirschmugl
+  - given-names: Martin
+    family-names: Puhm
+  - given-names: Raphael
+    family-names: Burtscher
+  - given-names: Heinz
+    family-names: Gallaun
+  - given-names: Janik
+    family-names: Deutscher
+identifiers:
+  - type: doi
+    value: 10.5194/essd-2026-185
+    description: Preprint
+repository-code: 'https://github.com/JR-DIGITAL/DISFOR'
+url: 'https://jr-digital.github.io/DISFOR/'
+repository-artifact: 'https://huggingface.co/datasets/JR-DIGITAL/DISFOR'
+abstract: >-
+  Attributing disturbance agents to canopy mortality in
+  European forests remains difficult due to sparse,
+  heterogeneous, and often single-agent reference data. We
+  present DISFOR (Viehweger et al., 2026), a uniformly
+  re-interpreted ground-truth dataset of forest disturbance
+  agents, designed to serve as training data for
+  multi-temporal classification and analysis of disturbance
+  agents with Sentinel-2 time-series. The dataset comprises
+  3,822 unique sample points, each defined at the 10×10 m
+  pixel level, labelled by disturbance event and agent and
+  fully temporally segmented into consecutive events and
+  forest states for the years 2015–2024. Labels follow a
+  three-level hierarchical scheme that supports analyses
+  from broad "alive vs. disturbed" partitions to specific
+  agents such as bark beetle, windthrow, wildfire, and
+  salvage logging. Samples were drawn from multi-source
+  ancillary data (e.g. EFFIS, FORWIND, Copernicus EMS, and
+  regional forestry datasets) and consistently
+  re-interpreted using an open-source interface and
+  generally available primary data like Sentinel-2 and very
+  high resolution imagery. For each sample we provide
+  interpreter confidence, cluster identifiers to capture
+  spatio-temporal autocorrelation, and additional metadata.
+  Alongside interpreted samples, we release two Sentinel-2
+  data products tailored to complementary use cases: (i) a
+  tabular single pixel reflectance time series between
+  2015–2024 and (ii) georeferenced 32×32-pixel image chips
+  centred on the sampled points suitable for computer vision
+  applications, with Python utilities for reproducible data
+  loading and filtering. The dataset is suited for training
+  and calibration of both change detection and agent
+  attribution algorithms at sub-annual resolution, it
+  supports training on single timestamps as well as on
+  time-series, and facilitates studies that integrate
+  spectral dynamics with spatial context. By harmonizing
+  multiple first-level disturbance agent products and
+  providing dense, temporally explicit labels, this resource
+  lowers a major barrier to developing European forest
+  disturbance and recovery monitoring.
+license: EUPL-1.2
