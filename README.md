@@ -1,5 +1,7 @@
 # DISFOR <img align="right" width="150" height="150" src="docs/assets/logo.svg">
 
+Preprint at https://doi.org/10.5194/essd-2026-185
+
 **DISFOR** offers dense labelled satellite time-series data on forest disturbance timing and agents of disturbance. It contains 3823 unique time-series. 
 Each time-series corresponds to a single 10x10m Sentinel-2 pixel. 
 
